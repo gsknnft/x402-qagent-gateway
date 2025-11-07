@@ -8,7 +8,7 @@ export const dynamic = 'force-dynamic'
 
 export async function POST(request: NextRequest) {
   try {
-    let payload: { variant?: 'classic' | 'fast-break' | 'press-break'; tokenId?: string } = {}
+    let payload: { variant?: 'classic' | 'fast-break' | 'press-break' | 'live'; tokenId?: string; durationMs?: number } = {}
     if (request.headers.get('content-type')?.includes('application/json')) {
       payload = await request.json()
     }
