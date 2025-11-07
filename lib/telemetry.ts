@@ -10,6 +10,9 @@ import type {
   AgentHaltedEvent,
   BudgetDeltaEvent,
   PaymentSettledEvent,
+  SigilEndpoint,
+  SigilRole,
+  SigilTransferEvent,
   TelemetryEvent,
 } from '../packages/telemetry-core/src/types'
 
@@ -22,6 +25,33 @@ export const TELEMETRY_LOG_PATH = path.join(
 )
 const DEFAULT_BUDGET_LAMPORTS = Number(process.env.NEXT_PUBLIC_AGENT_BUDGET_LAMPORTS ?? '1000000')
 const SOL_PRICE_USD = Number(process.env.NEXT_PUBLIC_SOL_PRICE_USD ?? '150')
+
+interface SigilParticipantSummary {
+  id: string
+  label: string
+  role: SigilRole
+}
+
+interface SigilPassSummary {
+  sequence: number
+  timestamp: string
+  intent: string
+  narrative: string | null
+  from: SigilParticipantSummary | null
+  to: SigilParticipantSummary
+}
+
+interface SigilPlaySummary {
+  active: boolean
+  tokenId: string | null
+  currentHolder: SigilParticipantSummary | null
+  lastIntent: string | null
+  totalPasses: number
+  totalShots: number
+  totalGoals: number
+  passes: SigilPassSummary[]
+  participants: SigilParticipantSummary[]
+}
 
 export interface TelemetrySummary {
   generatedAt: string
@@ -65,6 +95,7 @@ export interface TelemetrySummary {
     type: TelemetryEvent['type']
     summary: string
   }>
+  sigilPlay: SigilPlaySummary
 }
 
 export async function loadTelemetryEvents(limit = 400): Promise<TelemetryEvent[]> {
@@ -111,6 +142,7 @@ export async function getTelemetrySummary(limit = 400): Promise<TelemetrySummary
   const timeline = buildTimeline(events)
   const recentActions = summariseRecentActions(actionCompletedEvents)
   const taskStats = summariseTaskStats(actionStartedEvents, actionCompletedEvents)
+  const sigilPlay = summariseSigilPlay(events)
 
   return {
     generatedAt: new Date().toISOString(),
@@ -123,6 +155,7 @@ export async function getTelemetrySummary(limit = 400): Promise<TelemetrySummary
     taskStats,
     haltEvent,
     timeline,
+    sigilPlay,
   }
 }
 
@@ -193,6 +226,163 @@ function summariseTaskStats(
     succeeded,
     failed,
   }
+}
+
+function summariseSigilPlay(events: TelemetryEvent[]): SigilPlaySummary {
+  const transfers = events.filter(isSigilTransferEvent) as SigilTransferEvent[]
+  if (transfers.length === 0) {
+    return {
+      active: false,
+      tokenId: null,
+      currentHolder: null,
+      lastIntent: null,
+      totalPasses: 0,
+      totalShots: 0,
+      totalGoals: 0,
+      passes: [],
+      participants: [],
+    }
+  }
+
+  const sorted = [...transfers].sort((a, b) => {
+    if (a.payload.sequence !== b.payload.sequence) {
+      return a.payload.sequence - b.payload.sequence
+    }
+    return new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()
+  })
+
+  const participantStore = new Map<string, SigilParticipantSummary>()
+  let totalShots = 0
+  let totalGoals = 0
+
+  const passes = sorted.map(event => {
+    const from = toParticipantSummary(event.payload.from, participantStore)
+    const to = toParticipantSummary(event.payload.to, participantStore)!
+    const meta = event.payload.meta ?? {}
+    const intent = event.payload.intent
+    const normalisedIntent = intent.toLowerCase()
+    const metaGoal = typeof meta.goal === 'boolean' ? meta.goal : false
+    const metaShot = typeof meta.shot === 'boolean' ? meta.shot : false
+    const isGoal = metaGoal || normalisedIntent.includes('goal')
+    const isShot = isGoal || metaShot || normalisedIntent.includes('shot')
+
+    if (isGoal) {
+      totalGoals += 1
+    }
+    if (isShot) {
+      totalShots += 1
+    }
+
+    return {
+      sequence: event.payload.sequence,
+      timestamp: event.timestamp,
+      intent,
+      narrative: typeof event.payload.narrative === 'string' ? event.payload.narrative : null,
+      from,
+      to,
+    }
+  })
+
+  const participants = Array.from(participantStore.values()).sort((a, b) => {
+    const scoreA = rolePriority(a.role)
+    const scoreB = rolePriority(b.role)
+    if (scoreA !== scoreB) {
+      return scoreA - scoreB
+    }
+    return a.label.localeCompare(b.label)
+  })
+
+  const tokenId = sorted.at(-1)?.payload.tokenId ?? null
+  const lastIntent = sorted.at(-1)?.payload.intent ?? null
+  const currentHolder = passes.at(-1)?.to ?? null
+
+  return {
+    active: true,
+    tokenId,
+    currentHolder,
+    lastIntent,
+    totalPasses: sorted.length,
+    totalShots,
+    totalGoals,
+    passes,
+    participants,
+  }
+}
+
+function toParticipantSummary(
+  endpoint: SigilEndpoint | null,
+  store: Map<string, SigilParticipantSummary>,
+): SigilParticipantSummary | null {
+  if (!endpoint) {
+    return null
+  }
+
+  const desiredRole = normaliseRole(endpoint.role, endpoint.id)
+  const desiredLabel = endpoint.label ?? endpoint.id
+  const existing = store.get(endpoint.id)
+
+  if (existing) {
+    if (existing.label !== desiredLabel || existing.role !== desiredRole) {
+      const updated: SigilParticipantSummary = {
+        id: endpoint.id,
+        label: desiredLabel,
+        role: desiredRole,
+      }
+      store.set(endpoint.id, updated)
+      return updated
+    }
+    return existing
+  }
+
+  const participant: SigilParticipantSummary = {
+    id: endpoint.id,
+    label: desiredLabel,
+    role: desiredRole,
+  }
+
+  store.set(endpoint.id, participant)
+  return participant
+}
+
+function rolePriority(role: SigilRole) {
+  switch (role) {
+    case 'agent':
+      return 1
+    case 'vendor':
+      return 2
+    case 'hub':
+      return 3
+    case 'goal':
+      return 4
+    case 'observer':
+      return 5
+    default:
+      return 6
+  }
+}
+
+function normaliseRole(role: SigilRole | undefined, id: string): SigilRole {
+  if (role) {
+    return role
+  }
+
+  const value = id.toLowerCase()
+  if (value.includes('agent')) {
+    return 'agent'
+  }
+  if (value.includes('seller') || value.includes('vendor')) {
+    return 'vendor'
+  }
+  if (value.includes('goal') || value.includes('net')) {
+    return 'goal'
+  }
+  if (value.includes('hub') || value.includes('mesh') || value.includes('oracle')) {
+    return 'hub'
+  }
+  if (value.includes('observer') || value.includes('spectator')) {
+    return 'observer'
+  }
+  return 'other'
 }
 
 function resolveBudgetSnapshot(
@@ -272,6 +462,12 @@ function describeEvent(event: TelemetryEvent) {
       return `Agent halted (${event.payload.reason})`
     case 'sla.outcome':
       return `SLA outcome: ${event.payload.success ? 'success' : 'failure'} in ${event.payload.actualLatency}ms`
+    case 'sigil.transfer': {
+      const transfer = event as SigilTransferEvent
+      const fromLabel = transfer.payload.from?.label ?? transfer.payload.from?.id ?? 'origin'
+      const toLabel = transfer.payload.to.label ?? transfer.payload.to.id
+      return `Sigil pass ${fromLabel} → ${toLabel} (${transfer.payload.intent})`
+    }
     default:
       return 'Unknown event'
   }
@@ -340,6 +536,10 @@ function isBudgetDeltaEvent(event: TelemetryEvent): event is BudgetDeltaEvent {
 
 function isAgentHaltedEvent(event: TelemetryEvent): event is AgentHaltedEvent {
   return event.type === 'agent.halted'
+}
+
+function isSigilTransferEvent(event: TelemetryEvent): event is SigilTransferEvent {
+  return event.type === 'sigil.transfer'
 }
 
 async function safeStat(filePath: string) {

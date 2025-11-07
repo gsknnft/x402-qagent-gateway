@@ -13,7 +13,15 @@ const TIMESTAMP_FORMAT = new Intl.DateTimeFormat('en-US', {
   hour12: false,
 })
 
-type TimelineCategory = 'actions' | 'payments' | 'system'
+const DEMO_VARIANTS = [
+  { key: 'classic', label: 'Classic build-up', helper: 'Full possession ending in a goal' },
+  { key: 'fast-break', label: 'Fast break', helper: 'Rapid three-pass counter' },
+  { key: 'press-break', label: 'Press break', helper: 'High-pressure interception drill' },
+] as const
+
+type DemoVariant = (typeof DEMO_VARIANTS)[number]['key']
+
+type TimelineCategory = 'actions' | 'payments' | 'system' | 'sigil'
 
 interface Props {
   initialSummary: TelemetrySummary
@@ -25,15 +33,20 @@ export function TelemetryDashboard({ initialSummary, demoModeEnabled }: Props) {
   const [isRefreshing, setIsRefreshing] = useState(false)
   const [isClearing, setIsClearing] = useState(false)
   const [liveUpdates, setLiveUpdates] = useState(true)
+  const [isDemoRunning, setIsDemoRunning] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [actionStatusFilter, setActionStatusFilter] = useState<'all' | 'success' | 'failure'>('all')
-  const [timelineFilters, setTimelineFilters] = useState<{ actions: boolean; payments: boolean; system: boolean }>(
-    {
-      actions: true,
-      payments: true,
-      system: true,
-    },
-  )
+  const [timelineFilters, setTimelineFilters] = useState<{
+    actions: boolean
+    payments: boolean
+    system: boolean
+    sigil: boolean
+  }>({
+    actions: true,
+    payments: true,
+    system: true,
+    sigil: true,
+  })
 
   const eventSourceRef = useRef<EventSource | null>(null)
 
@@ -93,6 +106,33 @@ export function TelemetryDashboard({ initialSummary, demoModeEnabled }: Props) {
       setIsClearing(false)
     }
   }, [refreshSummary])
+
+  const runDemoScenario = useCallback(
+    async (variant: DemoVariant = 'classic') => {
+      setIsDemoRunning(true)
+      try {
+        const response = await fetch('/api/telemetry/demo-run', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ variant }),
+        })
+        if (!response.ok) {
+          throw new Error(`Demo scenario failed (${response.status})`)
+        }
+
+        if (!liveUpdates) {
+          await refreshSummary()
+        }
+
+        setError(null)
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'Unable to start the demo scenario')
+      } finally {
+        setIsDemoRunning(false)
+      }
+    },
+    [liveUpdates, refreshSummary],
+  )
 
   useEffect(() => {
     if (!liveUpdates) {
@@ -191,6 +231,14 @@ export function TelemetryDashboard({ initialSummary, demoModeEnabled }: Props) {
                 </button>
                 <button
                   type="button"
+                  onClick={() => runDemoScenario('classic')}
+                  className="inline-flex items-center gap-2 rounded-lg bg-indigo-500/20 px-4 py-2 text-sm font-semibold text-indigo-200 transition hover:bg-indigo-500/30 disabled:pointer-events-none disabled:opacity-60"
+                  disabled={isDemoRunning || isClearing}
+                >
+                  {isDemoRunning ? 'Running scenario…' : 'Play sigil demo'}
+                </button>
+                <button
+                  type="button"
                   onClick={clearTelemetry}
                   className="inline-flex items-center gap-2 rounded-lg bg-rose-500/20 px-4 py-2 text-sm font-semibold text-rose-200 transition hover:bg-rose-500/30 disabled:pointer-events-none disabled:opacity-60"
                   disabled={isClearing}
@@ -235,6 +283,7 @@ export function TelemetryDashboard({ initialSummary, demoModeEnabled }: Props) {
                   active={timelineFilters.system}
                   onClick={() => toggleTimelineFilter('system')}
                 />
+                <FilterToggle label="Sigil" active={timelineFilters.sigil} onClick={() => toggleTimelineFilter('sigil')} />
               </div>
 
               {error ? <p className="text-sm text-rose-300">{error}</p> : null}
@@ -272,6 +321,11 @@ export function TelemetryDashboard({ initialSummary, demoModeEnabled }: Props) {
           </section>
         ) : (
           <>
+            <SigilPitch
+              sigil={summary.sigilPlay}
+              onRunScenario={runDemoScenario}
+              isDemoRunning={isDemoRunning}
+            />
             <section className="grid gap-6 lg:grid-cols-2">
               <div className="rounded-2xl border border-slate-800 bg-slate-900/70 p-6">
                 <h2 className="text-lg font-semibold text-slate-100">Budget Status</h2>
@@ -520,6 +574,313 @@ export function TelemetryDashboard({ initialSummary, demoModeEnabled }: Props) {
   )
 }
 
+type SigilSummary = TelemetrySummary['sigilPlay']
+type SigilParticipant = SigilSummary['participants'][number]
+type SigilPass = SigilSummary['passes'][number]
+
+interface SigilLayoutPoint {
+  participant: SigilParticipant
+  x: number
+  y: number
+}
+
+function SigilPitch({
+  sigil,
+  isDemoRunning,
+  onRunScenario,
+}: {
+  sigil: SigilSummary
+  isDemoRunning: boolean
+  onRunScenario: (variant: DemoVariant) => Promise<void>
+}) {
+  const recentPasses = useMemo(() => sigil.passes.slice(-6), [sigil.passes])
+  const layout = useMemo(() => computeSigilLayout(sigil.participants), [sigil.participants])
+  const activeSequence = sigil.passes.at(-1)?.sequence ?? null
+
+  const variantButtons = (
+    <div className="flex flex-wrap gap-2">
+      {DEMO_VARIANTS.map(variant => (
+        <button
+          key={variant.key}
+          type="button"
+          onClick={() => onRunScenario(variant.key)}
+          className="inline-flex items-center rounded-full border border-indigo-500/40 bg-indigo-500/10 px-3 py-1 text-xs font-semibold text-indigo-200 transition hover:border-indigo-400 hover:bg-indigo-500/20 disabled:opacity-60"
+          disabled={isDemoRunning}
+          title={variant.helper}
+        >
+          {isDemoRunning ? 'Running…' : variant.label}
+        </button>
+      ))}
+    </div>
+  )
+
+  if (!sigil.active) {
+    return (
+      <section className="rounded-2xl border border-slate-800 bg-slate-900/70 p-6">
+        <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+          <div>
+            <h2 className="text-lg font-semibold text-slate-100">Sigil Passing Network</h2>
+            <p className="mt-2 text-sm text-slate-400">
+              Kick off a drill to watch a single sigil travel through the mesh. Each pass is logged for replay and analysis.
+            </p>
+          </div>
+          <div className="text-xs text-slate-500">
+            Demo mode spawns synthetic telemetry without needing the CLI.
+          </div>
+        </div>
+        <div className="mt-5 flex flex-wrap items-center gap-3 text-xs text-slate-400">
+          <span className="uppercase tracking-wide text-slate-500">Run a drill:</span>
+          {variantButtons}
+        </div>
+      </section>
+    )
+  }
+
+  return (
+    <section className="rounded-2xl border border-slate-800 bg-slate-900/70 p-6">
+      <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
+        <div className="space-y-2">
+          <h2 className="text-lg font-semibold text-slate-100">Sigil Passing Network</h2>
+          <p className="text-sm text-slate-400">
+            Track the live possession of token <span className="font-mono text-slate-200">{sigil.tokenId ?? '—'}</span>. The mesh plays like
+            a soccer pitch: agents advance, vendors clear, hubs referee.
+          </p>
+          {sigil.lastIntent ? (
+            <p className="text-xs text-slate-500">Last intent: {sigil.lastIntent}</p>
+          ) : null}
+        </div>
+        <div className="grid grid-cols-2 gap-4 text-sm text-slate-300 md:text-right">
+          <div>
+            <p className="text-xs uppercase tracking-wide text-slate-500">Current holder</p>
+            <p className="mt-1 font-semibold text-slate-100">{sigil.currentHolder?.label ?? '—'}</p>
+          </div>
+          <div>
+            <p className="text-xs uppercase tracking-wide text-slate-500">Passes</p>
+            <p className="mt-1 font-semibold text-slate-100">{sigil.totalPasses}</p>
+          </div>
+          <div>
+            <p className="text-xs uppercase tracking-wide text-slate-500">Shots</p>
+            <p className={`mt-1 font-semibold ${sigil.totalShots > 0 ? 'text-sky-300' : 'text-slate-200'}`}>{sigil.totalShots}</p>
+          </div>
+          <div>
+            <p className="text-xs uppercase tracking-wide text-slate-500">Goals</p>
+            <p className={`mt-1 font-semibold ${sigil.totalGoals > 0 ? 'text-amber-300' : 'text-slate-200'}`}>{sigil.totalGoals}</p>
+          </div>
+        </div>
+      </div>
+
+      <div className="mt-6 grid gap-6 lg:grid-cols-[2fr,1fr]">
+        <SigilPitchField
+          layout={layout}
+          passes={recentPasses}
+          currentHolder={sigil.currentHolder}
+          activeSequence={activeSequence}
+        />
+        <div className="rounded-xl border border-slate-800 bg-slate-900/80 p-4 text-sm text-slate-300">
+          <p className="text-xs uppercase tracking-wide text-slate-500">Recent sequence</p>
+          {recentPasses.length === 0 ? (
+            <p className="mt-4 text-sm text-slate-400">Pass history will populate as the drill runs.</p>
+          ) : (
+            <ul className="mt-4 space-y-3">
+              {[...recentPasses].reverse().map(pass => (
+                <li key={pass.sequence} className="rounded-lg border border-slate-800 bg-slate-900/60 p-3">
+                  <div className="flex items-center justify-between text-xs text-slate-500">
+                    <span className="font-mono text-slate-400">#{String(pass.sequence).padStart(2, '0')}</span>
+                    <span>{formatTimestamp(pass.timestamp)}</span>
+                  </div>
+                  <p className="mt-2 text-sm font-semibold text-slate-100">
+                    {pass.from ? `${pass.from.label} → ${pass.to.label}` : `Kickoff → ${pass.to.label}`}
+                  </p>
+                  <p className="text-xs uppercase tracking-wide text-indigo-300">{pass.intent}</p>
+                  {pass.narrative ? <p className="mt-2 text-xs text-slate-400">{pass.narrative}</p> : null}
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      </div>
+
+      <div className="mt-6 flex flex-wrap items-center gap-3 text-xs text-slate-400">
+        <span className="uppercase tracking-wide text-slate-500">Run a drill:</span>
+        {variantButtons}
+        <span className="text-[11px] text-slate-500">Buttons enqueue synthetic telemetry events.</span>
+      </div>
+    </section>
+  )
+}
+
+function SigilPitchField({
+  layout,
+  passes,
+  currentHolder,
+  activeSequence,
+}: {
+  layout: Record<string, SigilLayoutPoint>
+  passes: SigilPass[]
+  currentHolder: SigilParticipant | null
+  activeSequence: number | null
+}) {
+  const nodes = Object.values(layout)
+
+  return (
+    <div className="rounded-xl border border-slate-800 bg-slate-900/80 p-4">
+      <svg viewBox="0 0 100 60" className="h-64 w-full">
+        <rect x="1" y="1" width="98" height="58" rx="8" fill="none" stroke="#1f2a40" strokeWidth="1.2" />
+        <line x1="50" y1="1" x2="50" y2="59" stroke="#1f2a40" strokeWidth="0.7" strokeDasharray="2.5 3" />
+        <circle cx="50" cy="30" r="9" stroke="#1f2a40" strokeWidth="0.7" fill="none" strokeDasharray="3 2" />
+
+        {passes.map((pass, index) => {
+          const fromPoint = pass.from ? layout[pass.from.id] : undefined
+          const toPoint = layout[pass.to.id]
+          if (!toPoint) {
+            return null
+          }
+
+          const startX = fromPoint ? fromPoint.x : 50
+          const startY = fromPoint ? fromPoint.y : 30
+          const color = getPassColor(pass)
+          const emphasis = pass.sequence === activeSequence
+          const opacity = 0.35 + (index / Math.max(passes.length, 1)) * 0.45
+
+          return (
+            <line
+              key={`pass-${pass.sequence}`}
+              x1={startX}
+              y1={startY}
+              x2={toPoint.x}
+              y2={toPoint.y}
+              stroke={color}
+              strokeWidth={emphasis ? 1.8 : 1.1}
+              strokeOpacity={opacity}
+              strokeLinecap="round"
+            />
+          )
+        })}
+
+        {nodes.map(node => {
+          const isHolder = currentHolder?.id === node.participant.id
+          return (
+            <g key={node.participant.id}>
+              <circle
+                cx={node.x}
+                cy={node.y}
+                r={isHolder ? 3.8 : 3}
+                fill={roleColor(node.participant.role)}
+                stroke={isHolder ? '#fde68a' : '#0f172a'}
+                strokeWidth={isHolder ? 1.4 : 1}
+              />
+              <text
+                x={node.x}
+                y={node.y - (isHolder ? 6 : 5)}
+                textAnchor="middle"
+                fontSize="3"
+                fill="#94a3b8"
+              >
+                {node.participant.label}
+              </text>
+            </g>
+          )
+        })}
+      </svg>
+    </div>
+  )
+}
+
+function computeSigilLayout(participants: SigilParticipant[]) {
+  if (participants.length === 0) {
+    return {} as Record<string, SigilLayoutPoint>
+  }
+
+  const sorted = [...participants].sort((a, b) => {
+    const roleScore = layoutRolePriority(a.role) - layoutRolePriority(b.role)
+    if (roleScore !== 0) {
+      return roleScore
+    }
+    return a.label.localeCompare(b.label)
+  })
+
+  const result: Record<string, SigilLayoutPoint> = {}
+  const count = sorted.length
+
+  sorted.forEach((participant, index) => {
+    const angle = (index / count) * Math.PI * 2
+    const radius = roleRadius(participant.role)
+    const x = 50 + radius * Math.cos(angle)
+    const y = 30 + radius * Math.sin(angle)
+    result[participant.id] = { participant, x, y }
+  })
+
+  return result
+}
+
+function layoutRolePriority(role: SigilParticipant['role']) {
+  switch (role) {
+    case 'hub':
+      return 1
+    case 'agent':
+      return 2
+    case 'vendor':
+      return 3
+    case 'goal':
+      return 4
+    case 'observer':
+      return 5
+    default:
+      return 6
+  }
+}
+
+function roleRadius(role: SigilParticipant['role']) {
+  switch (role) {
+    case 'hub':
+      return 6
+    case 'agent':
+      return 22
+    case 'vendor':
+      return 27
+    case 'goal':
+      return 32
+    case 'observer':
+      return 36
+    default:
+      return 24
+  }
+}
+
+function roleColor(role: SigilParticipant['role']) {
+  switch (role) {
+    case 'agent':
+      return '#34d399'
+    case 'vendor':
+      return '#60a5fa'
+    case 'hub':
+      return '#fbbf24'
+    case 'goal':
+      return '#f97316'
+    case 'observer':
+      return '#c084fc'
+    default:
+      return '#94a3b8'
+  }
+}
+
+function getPassColor(pass: SigilPass) {
+  const intent = pass.intent.toLowerCase()
+  if (intent.includes('goal')) {
+    return '#f97316'
+  }
+  if (intent.includes('shot')) {
+    return '#38bdf8'
+  }
+  if (intent.includes('exchange')) {
+    return '#a855f7'
+  }
+  if (intent.includes('return')) {
+    return '#facc15'
+  }
+  return '#6366f1'
+}
+
 function formatLamports(value: number) {
   return `${LAMPORTS_FORMAT.format(Math.round(value))} lamports`
 }
@@ -549,6 +910,9 @@ function getTimelineCategory(type: TelemetrySummary['timeline'][number]['type'])
   }
   if (type.startsWith('payment.')) {
     return 'payments'
+  }
+  if (type.startsWith('sigil.')) {
+    return 'sigil'
   }
   return 'system'
 }
