@@ -17,6 +17,7 @@ const DEMO_VARIANTS = [
   { key: 'classic', label: 'Classic build-up', helper: 'Full possession ending in a goal' },
   { key: 'fast-break', label: 'Fast break', helper: 'Rapid three-pass counter' },
   { key: 'press-break', label: 'Press break', helper: 'High-pressure interception drill' },
+  { key: 'live', label: 'Live Play ⚡', helper: 'Dynamic continuous game with random strategies' },
 ] as const
 
 type DemoVariant = (typeof DEMO_VARIANTS)[number]['key']
@@ -700,10 +701,62 @@ function SigilPitch({
         </div>
       </div>
 
+      {/* Possession statistics and sparklines */}
+      <div className="mt-6 grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+        {sigil.participants
+          .filter(participant => participant.role === 'agent')
+          .map(agent => {
+            const touchCount = sigil.passes.filter(pass => pass.to.id === agent.id || pass.from?.id === agent.id).length
+            const possessionPct = sigil.totalPasses > 0 ? (touchCount / sigil.totalPasses) * 100 : 0
+            const recentTouches = sigil.passes
+              .filter(pass => pass.to.id === agent.id || pass.from?.id === agent.id)
+              .slice(-10)
+              .map(() => 1)
+            
+            return (
+              <div key={agent.id} className="rounded-xl border border-slate-800 bg-slate-900/60 p-4">
+                <div className="flex items-center justify-between">
+                  <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">{agent.label}</p>
+                  <div
+                    className={`h-2 w-2 rounded-full ${sigil.currentHolder?.id === agent.id ? 'bg-amber-400 animate-pulse' : 'bg-slate-600'}`}
+                  />
+                </div>
+                <div className="mt-2 flex items-end gap-2">
+                  <p className="text-2xl font-bold text-slate-100">{Math.round(possessionPct)}%</p>
+                  <p className="mb-1 text-xs text-slate-500">possession</p>
+                </div>
+                <div className="mt-3">
+                  <div className="flex items-end justify-between gap-px">
+                    {recentTouches.map((_, i) => {
+                      const height = 8 + Math.random() * 16
+                      return (
+                        <div
+                          key={i}
+                          className="flex-1 rounded-t bg-indigo-500/60"
+                          style={{ height: `${height}px` }}
+                        />
+                      )
+                    })}
+                  </div>
+                  <p className="mt-2 text-[10px] text-slate-500">{touchCount} touches</p>
+                </div>
+              </div>
+            )
+          })}
+      </div>
+
       <div className="mt-6 flex flex-wrap items-center gap-3 text-xs text-slate-400">
         <span className="uppercase tracking-wide text-slate-500">Run a drill:</span>
         {variantButtons}
         <span className="text-[11px] text-slate-500">Buttons enqueue synthetic telemetry events.</span>
+        <a
+          href="/api/telemetry/commentary?format=text"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="ml-auto inline-flex items-center gap-1 rounded-lg border border-slate-700 bg-slate-900/70 px-3 py-1 text-xs font-semibold text-slate-300 transition hover:border-slate-500 hover:text-slate-100"
+        >
+          📝 Get Commentary Script
+        </a>
       </div>
     </section>
   )

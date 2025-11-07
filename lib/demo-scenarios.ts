@@ -1,10 +1,12 @@
 import { randomUUID } from 'node:crypto'
 
 import type { SigilEndpoint, TelemetryEvent } from '../packages/telemetry-core/src/types'
+import { createDefaultLivePlayConfig, generateLivePlay } from './sigil-live-engine'
 
 interface ScenarioOptions {
-  variant?: 'classic' | 'fast-break' | 'press-break'
+  variant?: 'classic' | 'fast-break' | 'press-break' | 'live'
   tokenId?: string
+  durationMs?: number
 }
 
 interface PassPlan {
@@ -17,6 +19,19 @@ interface PassPlan {
 
 export function buildSigilDemoScenario(options: ScenarioOptions = {}): TelemetryEvent[] {
   const variant = options.variant ?? 'classic'
+  
+  // Handle live mode
+  if (variant === 'live') {
+    const config = createDefaultLivePlayConfig()
+    if (options.tokenId) {
+      config.tokenId = options.tokenId
+    }
+    if (options.durationMs && options.durationMs > 0) {
+      config.durationMs = options.durationMs
+    }
+    return generateLivePlay(config)
+  }
+
   const baseTimestamp = Date.now()
   const tokenId = options.tokenId ?? `sigil-${randomUUID()}`
   const agentId = 'demo-playmaker'
