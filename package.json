@@ -33,7 +33,8 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "clean:telemetry": "node -e \"const fs=require('fs');const path=require('path');const target=path.join(__dirname,'apps','agent-runner','logs','agent-telemetry.jsonl');if(fs.existsSync(target)){fs.rmSync(target);console.log('Telemetry log removed.');}else{console.log('No telemetry log to remove.');}\""
   },
   "dependencies": {
     "next": "16.0.1",

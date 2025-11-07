@@ -13,7 +13,13 @@ import type {
   TelemetryEvent,
 } from '../packages/telemetry-core/src/types'
 
-const LOG_PATH = path.join(process.cwd(), 'apps', 'agent-runner', 'logs', 'agent-telemetry.jsonl')
+export const TELEMETRY_LOG_PATH = path.join(
+  process.cwd(),
+  'apps',
+  'agent-runner',
+  'logs',
+  'agent-telemetry.jsonl',
+)
 const DEFAULT_BUDGET_LAMPORTS = Number(process.env.NEXT_PUBLIC_AGENT_BUDGET_LAMPORTS ?? '1000000')
 const SOL_PRICE_USD = Number(process.env.NEXT_PUBLIC_SOL_PRICE_USD ?? '150')
 
@@ -63,7 +69,7 @@ export interface TelemetrySummary {
 
 export async function loadTelemetryEvents(limit = 400): Promise<TelemetryEvent[]> {
   try {
-    const raw = await fs.readFile(LOG_PATH, 'utf-8')
+    const raw = await fs.readFile(TELEMETRY_LOG_PATH, 'utf-8')
     const lines = raw
       .split('\n')
       .map(line => line.trim())
@@ -94,7 +100,7 @@ export async function loadTelemetryEvents(limit = 400): Promise<TelemetryEvent[]
 }
 
 export async function getTelemetrySummary(limit = 400): Promise<TelemetrySummary> {
-  const [events, stats] = await Promise.all([loadTelemetryEvents(limit), safeStat(LOG_PATH)])
+  const [events, stats] = await Promise.all([loadTelemetryEvents(limit), safeStat(TELEMETRY_LOG_PATH)])
 
   const eventCounts = tallyEventCounts(events)
   const actionCompletedEvents = events.filter(isActionCompletedEvent)
@@ -349,4 +355,14 @@ async function safeStat(filePath: string) {
 
 function isEnoent(error: unknown): error is NodeJS.ErrnoException {
   return Boolean(error && typeof error === 'object' && 'code' in error && (error as NodeJS.ErrnoException).code === 'ENOENT')
+}
+
+export async function clearTelemetry() {
+  try {
+    await fs.unlink(TELEMETRY_LOG_PATH)
+  } catch (error: unknown) {
+    if (!isEnoent(error)) {
+      throw error
+    }
+  }
 }
