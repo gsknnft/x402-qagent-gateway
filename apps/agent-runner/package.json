@@ -1,0 +1,18 @@
+{
+  "name": "agent-runner",
+  "version": "0.1.0",
+  "description": "Autonomous buyer agent with budget and policy",
+  "main": "index.ts",
+  "scripts": {
+    "start": "tsx index.ts",
+    "dev": "tsx watch index.ts"
+  },
+  "dependencies": {
+    "viem": "^2.38.5"
+  },
+  "devDependencies": {
+    "@types/node": "^20",
+    "tsx": "^4.20.6",
+    "typescript": "^5"
+  }
+}

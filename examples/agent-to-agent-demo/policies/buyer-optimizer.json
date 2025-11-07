@@ -1,0 +1,39 @@
+{
+  "agentId": "buyer-agent-optimizer",
+  "strategy": "cost-optimizer",
+  "description": "Cost-conscious agent: selects cheapest viable actions to maximize budget efficiency",
+  "policy": {
+    "allowedVendors": [
+      "SellerWallet123abc",
+      "AlternateSellerXYZ",
+      "BudgetSellerABC"
+    ],
+    "budgetCap": 500000,
+    "budgetWindow": 1800,
+    "rateLimits": {
+      "sellerwallet123abc": 20,
+      "alternatesellerxyz": 15,
+      "budgetsellerabc": 30
+    },
+    "provenance": {
+      "agentId": "buyer-agent-optimizer",
+      "taskId": "demo-task-optimizer",
+      "commitHash": "hackathon-v1",
+      "environment": "devnet"
+    },
+    "haltConditions": {
+      "maxConsecutiveFailures": 5,
+      "settlementTimeoutMs": 60000
+    }
+  },
+  "vendorPreferences": {
+    "preferCheapest": true,
+    "reputationThreshold": 0.7,
+    "maxPricePerRequest": "$0.05"
+  },
+  "metadata": {
+    "created": "2025-11-07T17:00:00Z",
+    "version": "1.0.0",
+    "notes": "Cost optimizer selects cheapest vendors and actions to extend budget runway"
+  }
+}

@@ -1,0 +1,26 @@
+{
+  "vendorId": "SellerWallet123abc",
+  "services": [
+    {
+      "name": "text-transform",
+      "endpoint": "http://localhost:3001/api/transform",
+      "pricePerRequest": "$0.01",
+      "operations": ["uppercase", "lowercase", "reverse"],
+      "sla": {
+        "maxLatencyMs": 500,
+        "availability": 0.99
+      }
+    }
+  ],
+  "reputation": {
+    "score": 0.95,
+    "totalTransactions": 1250,
+    "successRate": 0.98,
+    "averageLatency": 120
+  },
+  "metadata": {
+    "created": "2025-11-07T17:00:00Z",
+    "version": "1.0.0",
+    "description": "Primary seller offering text transformation services"
+  }
+}

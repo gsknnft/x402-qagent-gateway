@@ -1,0 +1,32 @@
+{
+  "agentId": "buyer-agent-greedy",
+  "strategy": "greedy",
+  "description": "Priority-first agent: selects highest priority actions within budget",
+  "policy": {
+    "allowedVendors": [
+      "SellerWallet123abc",
+      "AlternateSellerXYZ"
+    ],
+    "budgetCap": 1000000,
+    "budgetWindow": 3600,
+    "rateLimits": {
+      "sellerwallet123abc": 10,
+      "alternatesellerxyz": 5
+    },
+    "provenance": {
+      "agentId": "buyer-agent-greedy",
+      "taskId": "demo-task-greedy",
+      "commitHash": "hackathon-v1",
+      "environment": "devnet"
+    },
+    "haltConditions": {
+      "maxConsecutiveFailures": 3,
+      "settlementTimeoutMs": 30000
+    }
+  },
+  "metadata": {
+    "created": "2025-11-07T17:00:00Z",
+    "version": "1.0.0",
+    "notes": "Greedy planner prioritizes important tasks first, regardless of cost"
+  }
+}
