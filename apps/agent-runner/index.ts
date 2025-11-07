@@ -75,7 +75,7 @@ async function main() {
   console.log(`📊 Telemetry: Console + JSONL (./logs/agent-telemetry.jsonl)\n`)
 
   // Define tasks
-  const tasks: AgentAction[] = [
+  const tasks: AgentAction<{ text: string; operation: string }, { result: string }>[] = [
     {
       type: 'text-transform',
       input: { text: 'Hello, X402 World!', operation: 'uppercase' },
@@ -130,7 +130,9 @@ async function main() {
           timestamp: new Date().toISOString(),
           correlationId: 'halt-001',
           agentId,
-          provenance: policy.provenance,
+          provenance: Object.fromEntries(
+            Object.entries(policy.provenance).map(([k, v]) => [k, v ?? ''])
+          ),
           payload: {
             reason: 'consecutive_failures',
             details: `${consecutiveFailures} consecutive failures`,

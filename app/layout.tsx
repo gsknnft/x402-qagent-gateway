@@ -13,8 +13,9 @@ const geistMono = Geist_Mono({
 })
 
 export const metadata: Metadata = {
-  title: 'Solana x402 Template',
-  description: 'This is a Next.js template with Solana payment integration using the x402 protocol.',
+  title: 'Quantum Agent Gateway Dashboard',
+  description:
+    'Telemetry control plane for the X402 Quantum Agent Gateway — inspect budgets, payments, and task lineage emitted by the autonomous buyer demo.',
 }
 
 export default function RootLayout({

@@ -19,8 +19,29 @@ NC='\033[0m' # No Color
 command -v node >/dev/null 2>&1 || { echo "❌ node is required but not installed. Aborting." >&2; exit 1; }
 command -v pnpm >/dev/null 2>&1 || { echo "❌ pnpm is required but not installed. Run: npm install -g pnpm" >&2; exit 1; }
 
-echo -e "${BLUE}📦 Installing dependencies...${NC}"
-pnpm install --silent 2>&1 | tail -n 5
+echo -e "${BLUE}📦 Installing dependencies (filtered workspace)...${NC}"
+
+INSTALL_MODE="${SKIP_INSTALL:-auto}"
+
+if [ "$INSTALL_MODE" = "1" ]; then
+  echo -e "${YELLOW}⚠️  SKIP_INSTALL=1 detected, skipping pnpm install${NC}"
+elif [ -d "node_modules" ] && [ "$INSTALL_MODE" = "auto" ]; then
+  echo -e "${YELLOW}⚠️  node_modules already present; skipping install (set SKIP_INSTALL=0 to force)${NC}"
+else
+  FILTERS=(
+    --filter "x402-template..."
+    --filter "agent-runner..."
+    --filter "seller-service..."
+    --filter "@x402-qagent/agent-sdk..."
+    --filter "@x402-qagent/middleware..."
+    --filter "@x402-qagent/telemetry..."
+  )
+
+  if ! pnpm install ${FILTERS[@]} --reporter=append-only; then
+    echo -e "${YELLOW}⚠️  Filtered install failed, running full workspace install...${NC}"
+    pnpm install --reporter=append-only
+  fi
+fi
 
 echo ""
 echo -e "${GREEN}✅ Dependencies installed${NC}"

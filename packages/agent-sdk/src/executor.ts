@@ -5,7 +5,7 @@
 
 import { randomUUID } from 'crypto'
 import { AgentExecutor, AgentAction, ServiceAdapter, AdapterResult, AdapterContext } from './types'
-import { BudgetManager } from './budget-manager'
+import { BudgetManager } from './types'
 import { TelemetryEvent } from '../../telemetry-core/src/types'
 
 export class DefaultAgentExecutor implements AgentExecutor {

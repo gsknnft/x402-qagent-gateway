@@ -1,0 +1,22 @@
+// tsconfig.base.json - Base TypeScript configuration
+{
+  "compilerOptions": {
+    "target": "ESNext",
+    "moduleResolution": "Bundler",
+    "module": "ESNext",
+    "esModuleInterop": true,
+    "jsx": "react-jsx",
+    "allowSyntheticDefaultImports": true,
+    "resolveJsonModule": true,
+    "skipLibCheck": true,
+    "forceConsistentCasingInFileNames": true,
+    "sourceMap": true
+  },
+  "exclude": [
+    "node_modules",
+    "app/dist",
+    "release",
+    "build",
+    "dist"
+  ]
+}

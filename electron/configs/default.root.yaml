@@ -1,0 +1,6 @@
+baseurl: ../../../../
+packages:
+  # - src/** <- if monorepo
+  - '!**/dist/**'
+  - '!**/build/**'
+  - '!src/secure/**'

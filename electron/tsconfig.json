@@ -1,0 +1,38 @@
+{
+  "extends": "./tsconfig.base.json",
+  "compilerOptions": {
+    "target": "esnext",
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
+    "isolatedModules": true,
+    "lib": ["DOM", "DOM.Iterable", "ESNext"],
+    "rootDir": ".",
+    "paths": {
+      "@/*": ["./*"],
+      "@styles/*": ["./styles/*"],
+      "@utils/*": ["./utils/*"],
+      "@contexts/*": ["./contexts/*"],
+      "@common/*": ["./common/*"],
+      // "Core/*": ["../electron-secure/app/Core/*"],
+      // "I18n/*": ["../electron-secure/app/I18n/*"],
+    },
+    "strict": false,
+    "noImplicitAny": false,
+    "sourceMap": true,
+    "allowSyntheticDefaultImports": true,
+    "resolveJsonModule": true,
+    "declaration": true,
+    "declarationDir": "./build/types",
+    "outDir": ".build/",
+    "types": [
+      "node"
+    ]
+  },
+  "exclude": [
+    "test",
+    "release/build",
+    "app/dist",
+    "node_modules"
+  ],
+  "include": ["package.json"]
+}
