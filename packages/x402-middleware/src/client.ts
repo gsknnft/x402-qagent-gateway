@@ -16,6 +16,31 @@ export class X402Client implements PaymentClient {
     this.facilitatorUrl = facilitatorUrl
   }
 
+  /**
+   * Normalize price strings into lamport amounts so demo inputs remain flexible.
+   */
+  private parsePrice(price: string): number {
+    const raw = price.trim()
+
+    // Allow lamport inputs like "1000" or "1000 lamports"
+    const lamportMatch = raw.match(/^([0-9]+)(\s*lamports?)?$/i)
+    if (lamportMatch) {
+      const lamports = Number.parseInt(lamportMatch[1], 10)
+      if (Number.isNaN(lamports) || lamports <= 0) {
+        throw new Error(`Invalid lamport amount: ${price}`)
+      }
+      return lamports
+    }
+
+    // Fall back to USD parsing, tolerating missing symbol
+    const normalized = raw.startsWith('$') ? raw : `$${raw}`
+    const lamports = usdToLamports(normalized)
+    if (lamports <= 0) {
+      throw new Error(`Invalid USD amount: ${price}`)
+    }
+    return lamports
+  }
+
   async pay(request: PaymentRequest): Promise<PaymentReceipt> {
     const idempotencyKey = request.idempotencyKey || randomUUID()
     const correlationId = request.correlationId || randomUUID()
