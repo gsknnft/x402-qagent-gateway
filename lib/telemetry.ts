@@ -53,8 +53,7 @@ interface SigilPlaySummary {
   participants: SigilParticipantSummary[]
 }
 
-export interface TelemetrySummary {
-  generatedAt: string
+export interface TelemetryStreamSummary {
   totalEvents: number
   lastUpdated: string | null
   eventCounts: Array<{ type: TelemetryEvent['type']; count: number }>
@@ -98,6 +97,55 @@ export interface TelemetrySummary {
   sigilPlay: SigilPlaySummary
 }
 
+export interface TelemetrySummary {
+  generatedAt: string
+  totalEvents: number
+  lastUpdated: string | null
+  eventCounts: Array<{ type: TelemetryEvent['type']; count: number }>
+  vendorSpend: Array<{ vendor: string; amountLamports: number; amountUsd: number }>
+  recentActions: Array<{
+    timestamp: string
+    actionType: string
+    success: boolean
+    costLamports: number
+    costUsd: number
+    durationMs: number
+    outputPreview: string
+    correlationId: string
+    taskId?: string
+  }>
+  budget: {
+    initialLamports: number
+    spentLamports: number
+    remainingLamports: number
+    initialUsd: number
+    spentUsd: number
+    remainingUsd: number
+  }
+  taskStats: {
+    planned: number
+    startedEvents: number
+    succeeded: number
+    failed: number
+  }
+  haltEvent: {
+    timestamp: string
+    reason: string
+    details: string
+  } | null
+  timeline: Array<{
+    id: string
+    timestamp: string
+    type: TelemetryEvent['type']
+    summary: string
+  }>
+  sigilPlay: SigilPlaySummary
+  streams: {
+    demo: TelemetryStreamSummary
+    gameboard: TelemetryStreamSummary
+  }
+}
+
 export async function loadTelemetryEvents(limit = 400): Promise<TelemetryEvent[]> {
   try {
     const raw = await fs.readFile(TELEMETRY_LOG_PATH, 'utf-8')
@@ -133,30 +181,80 @@ export async function loadTelemetryEvents(limit = 400): Promise<TelemetryEvent[]
 export async function getTelemetrySummary(limit = 400): Promise<TelemetrySummary> {
   const [events, stats] = await Promise.all([loadTelemetryEvents(limit), safeStat(TELEMETRY_LOG_PATH)])
 
-  const eventCounts = tallyEventCounts(events)
-  const actionCompletedEvents = events.filter(isActionCompletedEvent)
-  const actionStartedEvents = events.filter(isActionStartedEvent)
-  const vendorSpend = buildVendorSpend(events)
-  const budget = resolveBudgetSnapshot(events, actionCompletedEvents)
-  const haltEvent = findLatestHalt(events)
-  const timeline = buildTimeline(events)
-  const recentActions = summariseRecentActions(actionCompletedEvents)
-  const taskStats = summariseTaskStats(actionStartedEvents, actionCompletedEvents)
-  const sigilPlay = summariseSigilPlay(events)
+  const lastUpdated = stats?.mtime?.toISOString() ?? null
+  const partitions = partitionEvents(events)
+
+  const overall = buildStreamSummary(events, lastUpdated)
+  const demo = buildStreamSummary(partitions.demo, lastUpdated)
+  const gameboard = buildStreamSummary(partitions.gameboard, lastUpdated)
 
   return {
     generatedAt: new Date().toISOString(),
-    totalEvents: events.length,
-    lastUpdated: stats?.mtime?.toISOString() ?? null,
-    eventCounts,
-    vendorSpend,
-    recentActions,
-    budget,
-    taskStats,
-    haltEvent,
-    timeline,
-    sigilPlay,
+    ...overall,
+    streams: {
+      demo,
+      gameboard,
+    },
   }
+}
+
+function buildStreamSummary(events: TelemetryEvent[], lastUpdated: string | null): TelemetryStreamSummary {
+  const eventCounts = tallyEventCounts(events)
+  const actionCompletedEvents = events.filter(isActionCompletedEvent)
+  const actionStartedEvents = events.filter(isActionStartedEvent)
+
+  return {
+    totalEvents: events.length,
+    lastUpdated: events.length > 0 ? lastUpdated : null,
+    eventCounts,
+    vendorSpend: buildVendorSpend(events),
+    recentActions: summariseRecentActions(actionCompletedEvents),
+    budget: resolveBudgetSnapshot(events, actionCompletedEvents),
+    taskStats: summariseTaskStats(actionStartedEvents, actionCompletedEvents),
+    haltEvent: findLatestHalt(events),
+    timeline: buildTimeline(events),
+    sigilPlay: summariseSigilPlay(events),
+  }
+}
+
+function partitionEvents(events: TelemetryEvent[]) {
+  const demo: TelemetryEvent[] = []
+  const gameboard: TelemetryEvent[] = []
+
+  for (const event of events) {
+    if (isGameboardEvent(event)) {
+      gameboard.push(event)
+    } else {
+      demo.push(event)
+    }
+  }
+
+  return { demo, gameboard }
+}
+
+function isGameboardEvent(event: TelemetryEvent) {
+  const streamTag = event.provenance?.stream
+  if (streamTag === 'gameboard') {
+    return true
+  }
+  if (streamTag === 'demo') {
+    return false
+  }
+
+  if (event.agentId === 'live-playmaker') {
+    return true
+  }
+
+  if (event.taskId?.startsWith('live-play-')) {
+    return true
+  }
+
+  const mode = event.provenance?.mode
+  if (mode === 'live' || mode === 'gameboard') {
+    return true
+  }
+
+  return false
 }
 
 function tallyEventCounts(events: TelemetryEvent[]) {

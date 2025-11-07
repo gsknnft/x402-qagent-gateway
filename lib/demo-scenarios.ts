@@ -1,12 +1,19 @@
 import { randomUUID } from 'node:crypto'
 
 import type { SigilEndpoint, TelemetryEvent } from '../packages/telemetry-core/src/types'
-import { createDefaultLivePlayConfig, generateLivePlay } from './sigil-live-engine'
+import {
+  createDefaultLivePlayConfig,
+  generateLivePlay,
+  type BudgetSnapshot,
+} from './sigil-live-engine'
 
-interface ScenarioOptions {
+export interface ScenarioOptions {
   variant?: 'classic' | 'fast-break' | 'press-break' | 'live'
   tokenId?: string
   durationMs?: number
+  startTimestamp?: number
+  sequenceOffset?: number
+  currentHolderId?: string
 }
 
 interface PassPlan {
@@ -17,23 +24,40 @@ interface PassPlan {
   meta?: Record<string, unknown>
 }
 
-export function buildSigilDemoScenario(options: ScenarioOptions = {}): TelemetryEvent[] {
+const SCENARIO_COSTS: Record<'classic' | 'fast-break' | 'press-break' | 'live', number> = {
+  classic: 5_000,
+  'fast-break': 7_500,
+  'press-break': 6_500,
+  live: 10_000,
+}
+
+export function buildSigilDemoScenario(options: ScenarioOptions = {}, budget?: BudgetSnapshot): TelemetryEvent[] {
   const variant = options.variant ?? 'classic'
-  
+  const fallbackTokenPrefix = variant === 'live' ? 'sigil-live' : 'sigil'
+  const tokenId = options.tokenId ?? `${fallbackTokenPrefix}-${randomUUID()}`
+
   // Handle live mode
   if (variant === 'live') {
     const config = createDefaultLivePlayConfig()
-    if (options.tokenId) {
-      config.tokenId = options.tokenId
-    }
+    config.tokenId = tokenId
     if (options.durationMs && options.durationMs > 0) {
       config.durationMs = options.durationMs
     }
-    return generateLivePlay(config)
+    if (options.startTimestamp) {
+      config.baseTimestamp = options.startTimestamp
+    }
+
+    return generateLivePlay(config, {
+      budget,
+      startTimestamp: options.startTimestamp,
+      sequenceOffset: options.sequenceOffset,
+      tokenId,
+      startHolderId: options.currentHolderId,
+    })
   }
 
-  const baseTimestamp = Date.now()
-  const tokenId = options.tokenId ?? `sigil-${randomUUID()}`
+  const baseTimestamp = options.startTimestamp ?? Date.now()
+  const sequenceOffset = options.sequenceOffset ?? 0
   const agentId = 'demo-playmaker'
   const taskId = `demo-${variant}`
 
@@ -78,6 +102,18 @@ export function buildSigilDemoScenario(options: ScenarioOptions = {}): Telemetry
     label: 'Sentinel',
     role: 'observer',
   }
+
+  const roster: SigilEndpoint[] = [
+    facilitator,
+    agentAlpha,
+    agentBeta,
+    sellerPrime,
+    sellerDelta,
+    oracleGoal,
+    sentinel,
+  ]
+
+  const participantIndex = new Map(roster.map(endpoint => [endpoint.id, endpoint]))
 
   const scripts: Record<'classic' | 'fast-break' | 'press-break', PassPlan[]> = {
     classic: [
@@ -220,10 +256,19 @@ export function buildSigilDemoScenario(options: ScenarioOptions = {}): Telemetry
     ],
   }
 
-  const passes = scripts[variant]
+  const rawScript = scripts[variant]
+  const script: PassPlan[] = rawScript.map(pass => ({ ...pass }))
+
+  if (script.length > 0) {
+    const startHolder = options.currentHolderId ? participantIndex.get(options.currentHolderId) : null
+    if (startHolder) {
+      script[0] = { ...script[0], from: startHolder }
+    }
+  }
 
   const events: TelemetryEvent[] = []
   const provenance = {
+    stream: 'demo',
     scenario: variant,
     tokenId,
   }
@@ -245,18 +290,19 @@ export function buildSigilDemoScenario(options: ScenarioOptions = {}): Telemetry
     },
   })
 
-  passes.forEach((plan, index) => {
+  script.forEach((plan, index) => {
     const eventTimestamp = new Date(baseTimestamp + (index + 1) * 1200).toISOString()
+    const sequence = sequenceOffset + index + 1
     events.push({
       type: 'sigil.transfer',
       timestamp: eventTimestamp,
-      correlationId: `${tokenId}-${String(index + 1).padStart(2, '0')}`,
+      correlationId: `${tokenId}-${String(sequence).padStart(4, '0')}`,
       agentId,
       taskId,
       provenance,
       payload: {
         tokenId,
-        sequence: index + 1,
+        sequence,
         from: plan.from,
         to: plan.to,
         intent: plan.intent,
@@ -266,7 +312,16 @@ export function buildSigilDemoScenario(options: ScenarioOptions = {}): Telemetry
     })
   })
 
-  const completionTimestamp = new Date(baseTimestamp + (passes.length + 2) * 1200).toISOString()
+  const initialBudget = budget?.initialLamports ?? 1_000_000
+  const previousRemaining = budget?.remainingLamports ?? initialBudget
+  const previousSpent = budget?.spentLamports ?? (initialBudget - previousRemaining)
+  const baseScenarioCost = SCENARIO_COSTS[variant]
+  const scenarioSpend = Math.min(previousRemaining, baseScenarioCost)
+  const newRemaining = Math.max(previousRemaining - scenarioSpend, 0)
+  const newSpent = Math.min(initialBudget, previousSpent + (previousRemaining - newRemaining))
+  const delta = newRemaining - previousRemaining
+
+  const completionTimestamp = new Date(baseTimestamp + (script.length + 2) * 1200).toISOString()
   events.push({
     type: 'action.completed',
     timestamp: completionTimestamp,
@@ -278,31 +333,48 @@ export function buildSigilDemoScenario(options: ScenarioOptions = {}): Telemetry
       actionType: 'sigil.playbook',
       output: {
         tokenId,
-        passes: passes.length,
-        goals: passes.filter(pass => pass.meta?.goal === true).length,
-        shots: passes.filter(pass => pass.meta?.shot === true || pass.intent.includes('shot')).length,
+        variant,
+        passes: script.length,
+        goals: script.filter(pass => pass.meta?.goal === true).length,
+        shots: script.filter(pass => pass.meta?.shot === true || pass.intent.includes('shot')).length,
+        spendLamports: scenarioSpend,
       },
       actualCost: 0,
-      duration: passes.length * 1200,
+      duration: script.length * 1200,
       success: true,
     },
   })
 
   events.push({
     type: 'budget.delta',
-    timestamp: new Date(baseTimestamp + (passes.length + 3) * 1200).toISOString(),
+    timestamp: new Date(baseTimestamp + (script.length + 3) * 1200).toISOString(),
     correlationId: randomUUID(),
     agentId,
     taskId,
     provenance,
     payload: {
-      previousBalance: 1_000_000,
-      newBalance: 995_000,
-      delta: -5_000,
-      spent: 5_000,
-      remaining: 995_000,
+      previousBalance: previousRemaining,
+      newBalance: newRemaining,
+      delta,
+      spent: newSpent,
+      remaining: newRemaining,
     },
   })
+
+  if (newRemaining === 0) {
+    events.push({
+      type: 'agent.halted',
+      timestamp: new Date(baseTimestamp + (script.length + 4) * 1200).toISOString(),
+      correlationId: `halt-${tokenId}-${randomUUID()}`,
+      agentId,
+      taskId,
+      provenance,
+      payload: {
+        reason: 'budget_exhausted',
+        details: `Budget depleted after ${variant} scenario.`,
+      },
+    })
+  }
 
   return events
 }

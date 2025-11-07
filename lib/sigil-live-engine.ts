@@ -6,6 +6,20 @@
 import { randomUUID } from 'node:crypto'
 import type { SigilEndpoint, TelemetryEvent } from '../packages/telemetry-core/src/types'
 
+export interface BudgetSnapshot {
+  initialLamports: number
+  remainingLamports: number
+  spentLamports: number
+}
+
+export interface LivePlayRuntimeOptions {
+  budget?: BudgetSnapshot
+  startTimestamp?: number
+  sequenceOffset?: number
+  tokenId?: string
+  startHolderId?: string
+}
+
 export interface AgentStrategy {
   id: string
   endpoint: SigilEndpoint
@@ -90,17 +104,28 @@ function formatNarrative(template: string, from: string, to: string): string {
   return template.replace('{from}', from).replace('{to}', to)
 }
 
-export function generateLivePlay(config: LivePlayConfig): TelemetryEvent[] {
+export function generateLivePlay(config: LivePlayConfig, runtime: LivePlayRuntimeOptions = {}): TelemetryEvent[] {
   const {
     durationMs,
     agents,
     vendors,
     hub,
     goal,
-    baseTimestamp = Date.now(),
-    tokenId = `sigil-live-${randomUUID()}`,
+    baseTimestamp: baseFromConfig,
+    tokenId: configTokenId,
     turnoverRate = 0.05,
   } = config
+
+  const {
+    budget,
+    startTimestamp,
+    sequenceOffset = 0,
+    tokenId,
+    startHolderId,
+  } = runtime
+
+  const resolvedTokenId = tokenId ?? configTokenId ?? `sigil-live-${randomUUID()}`
+  const resolvedStartTimestamp = startTimestamp ?? baseFromConfig ?? Date.now()
 
   const allParticipants = [
     ...agents.map(a => a.endpoint),
@@ -109,11 +134,14 @@ export function generateLivePlay(config: LivePlayConfig): TelemetryEvent[] {
     goal,
   ]
 
+  const participantIndex = new Map(allParticipants.map(endpoint => [endpoint.id, endpoint]))
+  const initialHolder = startHolderId ? participantIndex.get(startHolderId) ?? hub : hub
+
   const state: SimulationState = {
-    currentHolder: hub,
-    tokenId,
-    sequence: 0,
-    timestamp: baseTimestamp,
+    currentHolder: initialHolder,
+    tokenId: resolvedTokenId,
+    sequence: sequenceOffset,
+    timestamp: resolvedStartTimestamp,
     events: [],
     goals: 0,
     shots: 0,
@@ -122,9 +150,10 @@ export function generateLivePlay(config: LivePlayConfig): TelemetryEvent[] {
 
   const agentId = 'live-playmaker'
   const taskId = `live-play-${randomUUID()}`
-  const provenance = {
+  const provenance: Record<string, string> = {
     mode: 'live',
-    tokenId,
+    stream: 'gameboard',
+    tokenId: resolvedTokenId,
   }
 
   // Kickoff event
@@ -142,29 +171,33 @@ export function generateLivePlay(config: LivePlayConfig): TelemetryEvent[] {
     },
   })
 
-  // Initial transfer from hub to random agent
-  const firstAgent = pickRandom(agents)
-  state.sequence++
-  const kickoffEvent = createTransferEvent(
-    state,
-    null,
-    firstAgent.endpoint,
-    'kickoff',
-    formatNarrative(
-      `Facilitator sparks live play by delivering to {to}`,
-      hub.label || hub.id,
-      firstAgent.endpoint.label || firstAgent.endpoint.id,
-    ),
-    agentId,
-    taskId,
-    provenance,
-  )
-  state.events.push(kickoffEvent)
-  state.currentHolder = firstAgent.endpoint
-  state.timestamp += 500
+  if (!startHolderId) {
+    const firstAgent = pickRandom(agents)
+    state.sequence++
+    const kickoffEvent = createTransferEvent(
+      state,
+      null,
+      firstAgent.endpoint,
+      'kickoff',
+      formatNarrative(
+        `Facilitator sparks live play by delivering to {to}`,
+        hub.label || hub.id,
+        firstAgent.endpoint.label || firstAgent.endpoint.id,
+      ),
+      agentId,
+      taskId,
+      provenance,
+    )
+    state.events.push(kickoffEvent)
+    state.currentHolder = firstAgent.endpoint
+    state.timestamp += 500
+  } else {
+    // Slightly advance the clock so new events appear after the previous possession
+    state.timestamp += 300
+  }
 
   // Run live simulation loop
-  while (state.timestamp - baseTimestamp < durationMs) {
+  while (state.timestamp - resolvedStartTimestamp < durationMs) {
     const currentStrategy = agents.find(a => a.endpoint.id === state.currentHolder.id)
 
     if (!currentStrategy) {
@@ -281,7 +314,7 @@ export function generateLivePlay(config: LivePlayConfig): TelemetryEvent[] {
           ),
         )
         state.currentHolder = goal
-        state.timestamp += 500
+  state.timestamp += 500
 
         // Reset to hub
         state.sequence++
@@ -316,7 +349,7 @@ export function generateLivePlay(config: LivePlayConfig): TelemetryEvent[] {
           ),
         )
         state.currentHolder = nextAgent.endpoint
-        state.timestamp += 500
+  state.timestamp += 500
       } else {
         // Missed shot - vendor intercepts
         const defendingVendor = pickRandom(vendors)
@@ -368,6 +401,8 @@ export function generateLivePlay(config: LivePlayConfig): TelemetryEvent[] {
     }
   }
 
+  const passesGenerated = Math.max(state.sequence - sequenceOffset, 0)
+
   // Completion event
   state.events.push({
     type: 'action.completed',
@@ -379,19 +414,28 @@ export function generateLivePlay(config: LivePlayConfig): TelemetryEvent[] {
     payload: {
       actionType: 'sigil.live',
       output: {
-        tokenId,
-        passes: state.sequence,
+        tokenId: resolvedTokenId,
+        passes: passesGenerated,
         goals: state.goals,
         shots: state.shots,
         turnovers: state.turnovers,
       },
       actualCost: 0,
-      duration: state.timestamp - baseTimestamp,
+      duration: state.timestamp - resolvedStartTimestamp,
       success: true,
     },
   })
 
-  // Budget delta
+  const initialBudget = budget?.initialLamports ?? 1_000_000
+  const previousRemaining = budget?.remainingLamports ?? initialBudget
+  const previousSpent = budget?.spentLamports ?? (initialBudget - previousRemaining)
+  const computedSpendBase =
+    state.goals * 2_500 + state.shots * 1_200 + state.turnovers * 800 + passesGenerated * 150
+  const scenarioSpend = Math.min(previousRemaining, Math.max(5_000, computedSpendBase))
+  const newRemaining = Math.max(previousRemaining - scenarioSpend, 0)
+  const newSpent = Math.min(initialBudget, previousSpent + (previousRemaining - newRemaining))
+  const delta = newRemaining - previousRemaining
+
   state.events.push({
     type: 'budget.delta',
     timestamp: new Date(state.timestamp + 100).toISOString(),
@@ -400,13 +444,28 @@ export function generateLivePlay(config: LivePlayConfig): TelemetryEvent[] {
     taskId,
     provenance,
     payload: {
-      previousBalance: 1_000_000,
-      newBalance: 990_000,
-      delta: -10_000,
-      spent: 10_000,
-      remaining: 990_000,
+      previousBalance: previousRemaining,
+      newBalance: newRemaining,
+      delta,
+      spent: newSpent,
+      remaining: newRemaining,
     },
   })
+
+  if (newRemaining === 0) {
+    state.events.push({
+      type: 'agent.halted',
+      timestamp: new Date(state.timestamp + 300).toISOString(),
+      correlationId: `halt-${resolvedTokenId}-${randomUUID()}`,
+      agentId,
+      taskId,
+      provenance,
+      payload: {
+        reason: 'budget_exhausted',
+        details: 'Budget depleted during live sigil play.',
+      },
+    })
+  }
 
   return state.events
 }
@@ -425,7 +484,7 @@ function createTransferEvent(
   return {
     type: 'sigil.transfer',
     timestamp: new Date(state.timestamp).toISOString(),
-    correlationId: `${state.tokenId}-${String(state.sequence).padStart(2, '0')}`,
+  correlationId: `${state.tokenId}-${String(state.sequence).padStart(4, '0')}`,
     agentId,
     taskId,
     provenance,
