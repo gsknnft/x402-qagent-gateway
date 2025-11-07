@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import Link from 'next/link'
 
 import type { TelemetrySummary } from '@/lib/telemetry'
@@ -13,6 +13,8 @@ const TIMESTAMP_FORMAT = new Intl.DateTimeFormat('en-US', {
   hour12: false,
 })
 
+type TimelineCategory = 'actions' | 'payments' | 'system'
+
 interface Props {
   initialSummary: TelemetrySummary
   demoModeEnabled: boolean
@@ -22,8 +24,18 @@ export function TelemetryDashboard({ initialSummary, demoModeEnabled }: Props) {
   const [summary, setSummary] = useState(initialSummary)
   const [isRefreshing, setIsRefreshing] = useState(false)
   const [isClearing, setIsClearing] = useState(false)
-  const [autoRefresh, setAutoRefresh] = useState(false)
+  const [liveUpdates, setLiveUpdates] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [actionStatusFilter, setActionStatusFilter] = useState<'all' | 'success' | 'failure'>('all')
+  const [timelineFilters, setTimelineFilters] = useState<{ actions: boolean; payments: boolean; system: boolean }>(
+    {
+      actions: true,
+      payments: true,
+      system: true,
+    },
+  )
+
+  const eventSourceRef = useRef<EventSource | null>(null)
 
   const statusBadge = useMemo(() => {
     if (summary.haltEvent) {
@@ -83,20 +95,65 @@ export function TelemetryDashboard({ initialSummary, demoModeEnabled }: Props) {
   }, [refreshSummary])
 
   useEffect(() => {
-    if (!autoRefresh) {
+    if (!liveUpdates) {
+      if (eventSourceRef.current) {
+        eventSourceRef.current.close()
+        eventSourceRef.current = null
+      }
       return
     }
 
-    const id = setInterval(() => {
-      refreshSummary().catch(() => {
-        /* errors handled in refreshSummary */
-      })
-    }, 5000)
+    const source = new EventSource('/api/telemetry/stream')
+    eventSourceRef.current = source
 
-    return () => clearInterval(id)
-  }, [autoRefresh, refreshSummary])
+    source.onmessage = event => {
+      try {
+        const data = JSON.parse(event.data) as TelemetrySummary
+        setSummary(data)
+        setError(null)
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'Failed to parse live update')
+      }
+    }
+
+    source.onerror = () => {
+      setError('Live stream disconnected. Toggle live updates to reconnect.')
+      source.close()
+      eventSourceRef.current = null
+      setLiveUpdates(false)
+    }
+
+    return () => {
+      source.close()
+      eventSourceRef.current = null
+    }
+  }, [liveUpdates])
 
   const hasEvents = summary.totalEvents > 0
+
+  const filteredActions = useMemo(() => {
+    if (actionStatusFilter === 'all') {
+      return summary.recentActions
+    }
+    const shouldBeSuccess = actionStatusFilter === 'success'
+    return summary.recentActions.filter(action => action.success === shouldBeSuccess)
+  }, [summary.recentActions, actionStatusFilter])
+
+  const filteredTimeline = useMemo(() => {
+    return summary.timeline.filter(event => timelineFilters[getTimelineCategory(event.type)])
+  }, [summary.timeline, timelineFilters])
+
+  const maxVendorSpend = useMemo(() => {
+    return summary.vendorSpend.reduce((max, vendor) => Math.max(max, vendor.amountLamports), 0)
+  }, [summary.vendorSpend])
+
+  const maxDuration = useMemo(() => {
+    return filteredActions.reduce((max, action) => Math.max(max, action.durationMs), 0)
+  }, [filteredActions])
+
+  const toggleTimelineFilter = (key: TimelineCategory) => {
+    setTimelineFilters(prev => ({ ...prev, [key]: !prev[key] }))
+  }
 
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100">
@@ -126,11 +183,11 @@ export function TelemetryDashboard({ initialSummary, demoModeEnabled }: Props) {
                 </button>
                 <button
                   type="button"
-                  onClick={() => setAutoRefresh(value => !value)}
-                  className={`inline-flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-semibold transition ${autoRefresh ? 'bg-emerald-500 text-emerald-950 hover:bg-emerald-400' : 'bg-slate-900 text-slate-200 hover:bg-slate-800'}`}
+                  onClick={() => setLiveUpdates(value => !value)}
+                  className={`inline-flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-semibold transition ${liveUpdates ? 'bg-emerald-500 text-emerald-950 hover:bg-emerald-400' : 'bg-slate-900 text-slate-200 hover:bg-slate-800'}`}
                   disabled={isClearing}
                 >
-                  {autoRefresh ? 'Auto refresh: on' : 'Auto refresh: off'}
+                  {liveUpdates ? 'Live updates: on' : 'Live updates: off'}
                 </button>
                 <button
                   type="button"
@@ -140,6 +197,44 @@ export function TelemetryDashboard({ initialSummary, demoModeEnabled }: Props) {
                 >
                   {isClearing ? 'Clearing…' : 'Clear telemetry'}
                 </button>
+              </div>
+
+              <div className="flex flex-wrap items-center gap-3 text-xs text-slate-400">
+                <span className="uppercase tracking-wide text-slate-500">Action filter:</span>
+                <FilterToggle
+                  label="All"
+                  active={actionStatusFilter === 'all'}
+                  onClick={() => setActionStatusFilter('all')}
+                />
+                <FilterToggle
+                  label="Success"
+                  active={actionStatusFilter === 'success'}
+                  onClick={() => setActionStatusFilter('success')}
+                />
+                <FilterToggle
+                  label="Failed"
+                  active={actionStatusFilter === 'failure'}
+                  onClick={() => setActionStatusFilter('failure')}
+                />
+              </div>
+
+              <div className="flex flex-wrap items-center gap-3 text-xs text-slate-400">
+                <span className="uppercase tracking-wide text-slate-500">Timeline:</span>
+                <FilterToggle
+                  label="Actions"
+                  active={timelineFilters.actions}
+                  onClick={() => toggleTimelineFilter('actions')}
+                />
+                <FilterToggle
+                  label="Payments"
+                  active={timelineFilters.payments}
+                  onClick={() => toggleTimelineFilter('payments')}
+                />
+                <FilterToggle
+                  label="System"
+                  active={timelineFilters.system}
+                  onClick={() => toggleTimelineFilter('system')}
+                />
               </div>
 
               {error ? <p className="text-sm text-rose-300">{error}</p> : null}
@@ -162,8 +257,7 @@ export function TelemetryDashboard({ initialSummary, demoModeEnabled }: Props) {
 ./examples/agent-to-agent-demo/scripts/run-demo.sh
             </pre>
             <p className="mt-3 text-xs text-slate-500">
-              After the run finishes, hit “Manual refresh” or enable auto refresh to pull the latest results. The agent writes
-              structured events to <code className="font-mono text-slate-300">apps/agent-runner/logs/agent-telemetry.jsonl</code> which powers the panels below.
+              The agent writes structured events to <code className="font-mono text-slate-300">apps/agent-runner/logs/agent-telemetry.jsonl</code> which powers the panels below.
             </p>
           </div>
         </section>
@@ -244,10 +338,10 @@ export function TelemetryDashboard({ initialSummary, demoModeEnabled }: Props) {
               <div className="rounded-2xl border border-slate-800 bg-slate-900/70 p-6">
                 <div className="flex items-center justify-between">
                   <h2 className="text-lg font-semibold text-slate-100">Recent Actions</h2>
-                  <span className="text-xs text-slate-500">Most recent first</span>
+                  <span className="text-xs text-slate-500">Filtered view</span>
                 </div>
-                {summary.recentActions.length === 0 ? (
-                  <p className="mt-6 text-sm text-slate-400">No completed actions reported yet.</p>
+                {filteredActions.length === 0 ? (
+                  <p className="mt-6 text-sm text-slate-400">No actions matching the current filter.</p>
                 ) : (
                   <div className="mt-6 overflow-x-auto">
                     <table className="min-w-full text-sm">
@@ -260,7 +354,7 @@ export function TelemetryDashboard({ initialSummary, demoModeEnabled }: Props) {
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-slate-800/80">
-                        {summary.recentActions.map(action => (
+                        {filteredActions.map(action => (
                           <tr key={action.correlationId} className="align-top">
                             <td className="py-3 pr-4">
                               <p className="font-medium text-slate-100">{action.actionType}</p>
@@ -285,6 +379,36 @@ export function TelemetryDashboard({ initialSummary, demoModeEnabled }: Props) {
               </div>
 
               <div className="rounded-2xl border border-slate-800 bg-slate-900/70 p-6">
+                <h2 className="text-lg font-semibold text-slate-100">Action Duration</h2>
+                <p className="mt-2 text-sm text-slate-400">Visualising task runtime in milliseconds (filtered set).</p>
+                {filteredActions.length === 0 ? (
+                  <p className="mt-6 text-sm text-slate-400">No data available.</p>
+                ) : (
+                  <ul className="mt-6 space-y-3">
+                    {filteredActions.map(action => {
+                      const ratio = maxDuration > 0 ? Math.max((action.durationMs / maxDuration) * 100, 6) : 0
+                      return (
+                        <li key={`duration-${action.correlationId}`} className="space-y-1">
+                          <div className="flex items-center justify-between text-xs text-slate-400">
+                            <span>{action.actionType}</span>
+                            <span>{action.durationMs} ms</span>
+                          </div>
+                          <div className="h-2 w-full rounded-full bg-slate-800">
+                            <div
+                              className={`h-2 rounded-full ${action.success ? 'bg-emerald-500' : 'bg-rose-500'}`}
+                              style={{ width: `${ratio}%` }}
+                            />
+                          </div>
+                        </li>
+                      )
+                    })}
+                  </ul>
+                )}
+              </div>
+            </section>
+
+            <section className="grid gap-6 lg:grid-cols-2">
+              <div className="rounded-2xl border border-slate-800 bg-slate-900/70 p-6">
                 <div className="flex items-center justify-between">
                   <h2 className="text-lg font-semibold text-slate-100">Vendor Spend</h2>
                   <span className="text-xs text-slate-500">Aggregated from payment.settled events</span>
@@ -292,42 +416,51 @@ export function TelemetryDashboard({ initialSummary, demoModeEnabled }: Props) {
                 {summary.vendorSpend.length === 0 ? (
                   <p className="mt-6 text-sm text-slate-400">No settlements recorded.</p>
                 ) : (
-                  <ul className="mt-6 space-y-3">
-                    {summary.vendorSpend.map(vendor => (
-                      <li
-                        key={vendor.vendor}
-                        className="flex items-center justify-between rounded-xl border border-slate-800 bg-slate-900/60 px-4 py-3"
-                      >
-                        <div>
-                          <p className="text-sm font-medium text-slate-100">{vendor.vendor}</p>
+                  <ul className="mt-6 space-y-4">
+                    {summary.vendorSpend.map(vendor => {
+                      const ratio =
+                        maxVendorSpend > 0 ? Math.max((vendor.amountLamports / maxVendorSpend) * 100, 6) : 0
+                      return (
+                        <li key={vendor.vendor} className="space-y-2">
+                          <div className="flex items-center justify-between text-sm text-slate-300">
+                            <span>{vendor.vendor}</span>
+                            <span>{formatLamports(vendor.amountLamports)}</span>
+                          </div>
+                          <div className="h-2 w-full rounded-full bg-slate-800">
+                            <div
+                              className="h-2 rounded-full bg-indigo-500"
+                              style={{ width: `${ratio}%` }}
+                            />
+                          </div>
                           <p className="text-xs text-slate-500">{formatUsd(vendor.amountUsd)} spent</p>
+                        </li>
+                      )
+                    })}
+                  </ul>
+                )}
+              </div>
+
+              <div className="rounded-2xl border border-slate-800 bg-slate-900/70 p-6">
+                <div className="flex items-center justify-between">
+                  <h2 className="text-lg font-semibold text-slate-100">Event Timeline</h2>
+                  <span className="text-xs text-slate-500">Latest 20 events (filtered)</span>
+                </div>
+                {filteredTimeline.length === 0 ? (
+                  <p className="mt-6 text-sm text-slate-400">No events for the selected filters.</p>
+                ) : (
+                  <ul className="mt-6 space-y-4">
+                    {filteredTimeline.map(event => (
+                      <li key={event.id} className="rounded-xl border border-slate-800 bg-slate-900/60 p-4">
+                        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                          <span className="text-xs font-semibold uppercase tracking-wide text-slate-400">{event.type}</span>
+                          <span className="text-xs text-slate-500">{formatTimestamp(event.timestamp)}</span>
                         </div>
-                        <div className="text-right">
-                          <p className="text-sm font-semibold text-slate-100">{formatLamports(vendor.amountLamports)}</p>
-                        </div>
+                        <p className="mt-2 text-sm text-slate-200">{event.summary}</p>
                       </li>
                     ))}
                   </ul>
                 )}
               </div>
-            </section>
-
-            <section className="rounded-2xl border border-slate-800 bg-slate-900/70 p-6">
-              <div className="flex items-center justify-between">
-                <h2 className="text-lg font-semibold text-slate-100">Event Timeline</h2>
-                <span className="text-xs text-slate-500">Latest 20 telemetry events</span>
-              </div>
-              <ul className="mt-6 space-y-4">
-                {summary.timeline.map(event => (
-                  <li key={event.id} className="rounded-xl border border-slate-800 bg-slate-900/60 p-4">
-                    <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-                      <span className="text-xs font-semibold uppercase tracking-wide text-slate-400">{event.type}</span>
-                      <span className="text-xs text-slate-500">{formatTimestamp(event.timestamp)}</span>
-                    </div>
-                    <p className="mt-2 text-sm text-slate-200">{event.summary}</p>
-                  </li>
-                ))}
-              </ul>
             </section>
 
             <section className="grid gap-6 lg:grid-cols-2">
@@ -410,6 +543,16 @@ function utilisation(budget: { spentLamports: number; initialLamports: number })
   return (budget.spentLamports / budget.initialLamports) * 100
 }
 
+function getTimelineCategory(type: TelemetrySummary['timeline'][number]['type']): TimelineCategory {
+  if (type.startsWith('action.')) {
+    return 'actions'
+  }
+  if (type.startsWith('payment.')) {
+    return 'payments'
+  }
+  return 'system'
+}
+
 function BudgetMetric({
   label,
   lamports,
@@ -447,5 +590,17 @@ function TaskStatCard({
       <p className={`mt-2 text-2xl font-semibold ${tone}`}>{LAMPORTS_FORMAT.format(value)}</p>
       <p className="text-xs text-slate-500">{helper}</p>
     </div>
+  )
+}
+
+function FilterToggle({ label, active, onClick }: { label: string; active: boolean; onClick: () => void }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={`inline-flex items-center rounded-full border px-3 py-1 text-xs font-semibold transition ${active ? 'border-emerald-400 bg-emerald-500/20 text-emerald-200' : 'border-slate-700 bg-slate-900/70 text-slate-400 hover:border-slate-500 hover:text-slate-200'}`}
+    >
+      {label}
+    </button>
   )
 }
