@@ -77,6 +77,12 @@ export interface TelemetryStreamSummary {
     spentUsd: number
     remainingUsd: number
   }
+  budgetHistory: Array<{
+    timestamp: string
+    remainingLamports: number
+    spentLamports: number
+    isHalt?: boolean
+  }>
   taskStats: {
     planned: number
     startedEvents: number
@@ -122,6 +128,12 @@ export interface TelemetrySummary {
     spentUsd: number
     remainingUsd: number
   }
+  budgetHistory: Array<{
+    timestamp: string
+    remainingLamports: number
+    spentLamports: number
+    isHalt?: boolean
+  }>
   taskStats: {
     planned: number
     startedEvents: number
@@ -202,6 +214,7 @@ function buildStreamSummary(events: TelemetryEvent[], lastUpdated: string | null
   const eventCounts = tallyEventCounts(events)
   const actionCompletedEvents = events.filter(isActionCompletedEvent)
   const actionStartedEvents = events.filter(isActionStartedEvent)
+  const budgetHistory = buildBudgetHistory(events)
 
   return {
     totalEvents: events.length,
@@ -210,6 +223,7 @@ function buildStreamSummary(events: TelemetryEvent[], lastUpdated: string | null
     vendorSpend: buildVendorSpend(events),
     recentActions: summariseRecentActions(actionCompletedEvents),
     budget: resolveBudgetSnapshot(events, actionCompletedEvents),
+    budgetHistory,
     taskStats: summariseTaskStats(actionStartedEvents, actionCompletedEvents),
     haltEvent: findLatestHalt(events),
     timeline: buildTimeline(events),
@@ -515,6 +529,28 @@ function buildBudget(initial: number, spent: number, remaining: number) {
     spentUsd: lamportsToUsd(spent),
     remainingUsd: lamportsToUsd(remaining),
   }
+}
+
+function buildBudgetHistory(events: TelemetryEvent[]) {
+  const budgetEvents = events.filter(isBudgetDeltaEvent)
+  const haltEvents = events.filter(isAgentHaltedEvent)
+  const haltTimestamps = new Set(haltEvents.map(e => e.timestamp))
+
+  if (budgetEvents.length === 0) {
+    return []
+  }
+
+  // Sort by timestamp
+  const sorted = [...budgetEvents].sort(
+    (a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()
+  )
+
+  return sorted.map(event => ({
+    timestamp: event.timestamp,
+    remainingLamports: event.payload.remaining,
+    spentLamports: event.payload.spent,
+    isHalt: haltTimestamps.has(event.timestamp),
+  }))
 }
 
 function buildTimeline(events: TelemetryEvent[]) {
