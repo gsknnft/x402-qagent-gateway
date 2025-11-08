@@ -23,6 +23,9 @@ const DEMO_VARIANTS = [
 
 type DemoVariant = (typeof DEMO_VARIANTS)[number]['key']
 
+const DEMO_LIBRARY_VARIANTS = DEMO_VARIANTS.filter(variant => variant.key !== 'live')
+type DemoLibraryVariant = (typeof DEMO_LIBRARY_VARIANTS)[number]['key']
+
 type StreamKey = 'overall' | 'demo' | 'gameboard'
 
 const STREAM_OPTIONS: Array<{ key: StreamKey; label: string; helper: string; accent: string }> = [
@@ -270,6 +273,49 @@ export function TelemetryDashboard({ initialSummary, demoModeEnabled }: Props) {
   const toggleTimelineFilter = (key: TimelineCategory) => {
     setTimelineFilters(prev => ({ ...prev, [key]: !prev[key] }))
   }
+
+  const demoRecentActions = summary.streams.demo.recentActions
+
+  const demoLibrary = useMemo(() => {
+    const stats = new Map<DemoLibraryVariant, { runs: number; lastTimestamp: number; lastIso: string | null }>()
+
+    for (const action of demoRecentActions) {
+      const variantKey = action.scenarioVariant
+      if (!variantKey) {
+        continue
+      }
+      if (!isDemoLibraryVariant(variantKey)) {
+        continue
+      }
+      const current = stats.get(variantKey)
+      const timestampMs = new Date(action.timestamp).getTime()
+      if (!current) {
+        stats.set(variantKey, {
+          runs: 1,
+          lastTimestamp: timestampMs,
+          lastIso: action.timestamp,
+        })
+        continue
+      }
+      current.runs += 1
+      if (timestampMs > current.lastTimestamp) {
+        current.lastTimestamp = timestampMs
+        current.lastIso = action.timestamp
+      }
+    }
+
+    return DEMO_LIBRARY_VARIANTS.map(variant => {
+      const key = variant.key as DemoLibraryVariant
+      const stat = stats.get(key)
+      return {
+        key,
+        label: variant.label,
+        helper: variant.helper,
+        runs: stat?.runs ?? 0,
+        lastIso: stat?.lastIso ?? null,
+      }
+    })
+  }, [demoRecentActions])
 
   const primaryScenarioVariant: DemoVariant = activeStream === 'gameboard' ? 'live' : 'classic'
   const primaryScenarioLabel = activeStream === 'gameboard' ? 'Launch live rally' : 'Play sigil demo'
@@ -608,6 +654,11 @@ export function TelemetryDashboard({ initialSummary, demoModeEnabled }: Props) {
                           <tr key={action.correlationId} className="align-top">
                             <td className="py-3 pr-4">
                               <p className="font-medium text-slate-100">{action.actionType}</p>
+                              {action.scenarioVariant ? (
+                                <span className="mt-1 inline-flex rounded-full border border-slate-700 bg-slate-900/80 px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wide text-indigo-200">
+                                  {formatVariantLabel(action.scenarioVariant)}
+                                </span>
+                              ) : null}
                               <p className="text-xs text-slate-500">{formatTimestamp(action.timestamp)}</p>
                               {action.taskId ? <p className="mt-1 text-xs text-slate-500">task: {action.taskId}</p> : null}
                               <span className={`mt-2 inline-flex text-xs font-semibold ${action.success ? 'text-emerald-300' : 'text-rose-300'}`}>
@@ -628,32 +679,76 @@ export function TelemetryDashboard({ initialSummary, demoModeEnabled }: Props) {
                 )}
               </div>
 
-              <div className="rounded-2xl border border-slate-800 bg-slate-900/70 p-6">
-                <h2 className="text-lg font-semibold text-slate-100">Action Duration</h2>
-                <p className="mt-2 text-sm text-slate-400">Visualising task runtime in milliseconds (filtered set).</p>
-                {filteredActions.length === 0 ? (
-                  <p className="mt-6 text-sm text-slate-400">No data available.</p>
-                ) : (
-                  <ul className="mt-6 space-y-3">
-                    {filteredActions.map(action => {
-                      const ratio = maxDuration > 0 ? Math.max((action.durationMs / maxDuration) * 100, 6) : 0
-                      return (
-                        <li key={`duration-${action.correlationId}`} className="space-y-1">
-                          <div className="flex items-center justify-between text-xs text-slate-400">
-                            <span>{action.actionType}</span>
-                            <span>{action.durationMs} ms</span>
+              <div className="space-y-6">
+                <div className="rounded-2xl border border-slate-800 bg-slate-900/70 p-6">
+                  <h2 className="text-lg font-semibold text-slate-100">Action Duration</h2>
+                  <p className="mt-2 text-sm text-slate-400">Visualising task runtime in milliseconds (filtered set).</p>
+                  {filteredActions.length === 0 ? (
+                    <p className="mt-6 text-sm text-slate-400">No data available.</p>
+                  ) : (
+                    <ul className="mt-6 space-y-3">
+                      {filteredActions.map(action => {
+                        const ratio = maxDuration > 0 ? Math.max((action.durationMs / maxDuration) * 100, 6) : 0
+                        return (
+                          <li key={`duration-${action.correlationId}`} className="space-y-1">
+                            <div className="flex items-center justify-between text-xs text-slate-400">
+                              <span>{action.actionType}</span>
+                              <span>{action.durationMs} ms</span>
+                            </div>
+                            <div className="h-2 w-full rounded-full bg-slate-800">
+                              <div
+                                className={`h-2 rounded-full ${action.success ? 'bg-emerald-500' : 'bg-rose-500'}`}
+                                style={{ width: `${ratio}%` }}
+                              />
+                            </div>
+                          </li>
+                        )
+                      })}
+                    </ul>
+                  )}
+                </div>
+
+                <div className="rounded-2xl border border-slate-800 bg-slate-900/70 p-6">
+                  <div className="flex items-center justify-between">
+                    <h2 className="text-lg font-semibold text-slate-100">Demo Playbook Library</h2>
+                    <span className="text-xs text-slate-500">Always available for judges</span>
+                  </div>
+                  <p className="mt-2 text-sm text-slate-400">
+                    Trigger scripted drills without hunting through the CLI. These methods stay pinned even while the live arena
+                    is running.
+                  </p>
+                  <ul className="mt-6 space-y-4">
+                    {demoLibrary.map(entry => (
+                      <li key={entry.key} className="rounded-xl border border-slate-800/80 bg-slate-900/60 p-4">
+                        <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+                          <div>
+                            <p className="text-sm font-semibold text-slate-100">{entry.label}</p>
+                            <p className="text-xs text-slate-500">{DEMO_VARIANTS.find(variant => variant.key === entry.key)?.helper}</p>
+                            <p className="mt-2 text-xs text-slate-500">
+                              {entry.lastIso ? `Last run: ${formatTimestamp(entry.lastIso)}` : 'Not yet executed this session.'}
+                            </p>
+                            <p className="text-xs text-slate-500">Runs captured: {entry.runs}</p>
                           </div>
-                          <div className="h-2 w-full rounded-full bg-slate-800">
-                            <div
-                              className={`h-2 rounded-full ${action.success ? 'bg-emerald-500' : 'bg-rose-500'}`}
-                              style={{ width: `${ratio}%` }}
-                            />
+                          <div className="flex flex-col items-start gap-2 sm:items-end">
+                            <button
+                              type="button"
+                              onClick={() => onRunScenario(entry.key)}
+                              className="inline-flex items-center gap-2 rounded-lg border border-indigo-500/30 bg-indigo-500/10 px-3 py-1.5 text-xs font-semibold text-indigo-200 transition hover:border-indigo-400 hover:bg-indigo-500/20 disabled:pointer-events-none disabled:opacity-60"
+                              disabled={isDemoRunning || isClearing}
+                            >
+                              {isDemoRunning ? 'Queued…' : 'Run playbook'}
+                            </button>
+                            {entry.lastIso ? (
+                              <span className="text-[11px] uppercase tracking-wide text-slate-500">
+                                {formatRelativeRunLabel(entry.lastIso)}
+                              </span>
+                            ) : null}
                           </div>
-                        </li>
-                      )
-                    })}
+                        </div>
+                      </li>
+                    ))}
                   </ul>
-                )}
+                </div>
               </div>
             </section>
 
@@ -994,6 +1089,48 @@ function SigilPitch({
       </div>
     </section>
   )
+}
+
+function isDemoLibraryVariant(candidate: string): candidate is DemoLibraryVariant {
+  return DEMO_LIBRARY_VARIANTS.some(variant => variant.key === candidate)
+}
+
+function formatVariantLabel(variant: string) {
+  const match = DEMO_VARIANTS.find(item => item.key === variant)
+  if (match) {
+    return match.label
+  }
+
+  return variant
+    .split(/[-_\s]+/)
+    .filter(Boolean)
+    .map(part => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(' ')
+}
+
+function formatRelativeRunLabel(iso: string) {
+  const timestamp = new Date(iso).getTime()
+  if (Number.isNaN(timestamp)) {
+    return ''
+  }
+
+  const diffMs = Date.now() - timestamp
+  if (diffMs < 30_000) {
+    return 'Just now'
+  }
+
+  const minutes = Math.floor(diffMs / 60_000)
+  if (minutes < 60) {
+    return `${minutes} min${minutes === 1 ? '' : 's'} ago`
+  }
+
+  const hours = Math.floor(minutes / 60)
+  if (hours < 24) {
+    return `${hours} hr${hours === 1 ? '' : 's'} ago`
+  }
+
+  const days = Math.floor(hours / 24)
+  return `${days} day${days === 1 ? '' : 's'} ago`
 }
 
 function SigilPitchField({

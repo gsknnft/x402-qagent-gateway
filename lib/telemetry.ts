@@ -68,6 +68,7 @@ export interface TelemetryStreamSummary {
     outputPreview: string
     correlationId: string
     taskId?: string
+    scenarioVariant?: string
   }>
   budget: {
     initialLamports: number
@@ -119,6 +120,7 @@ export interface TelemetrySummary {
     outputPreview: string
     correlationId: string
     taskId?: string
+    scenarioVariant?: string
   }>
   budget: {
     initialLamports: number
@@ -315,7 +317,27 @@ function summariseRecentActions(events: ActionCompletedEvent[]) {
       outputPreview: buildOutputPreview(event.payload.output),
       correlationId: event.correlationId,
       taskId: event.taskId,
+      scenarioVariant: deriveScenarioVariant(event),
     }))
+}
+
+function deriveScenarioVariant(event: ActionCompletedEvent) {
+  if (event.payload.actionType === 'sigil.playbook') {
+    const output = event.payload.output
+    if (output && typeof output === 'object' && 'variant' in (output as Record<string, unknown>)) {
+      const variant = (output as Record<string, unknown>).variant
+      if (typeof variant === 'string') {
+        return variant
+      }
+    }
+  return undefined
+  }
+
+  if (event.payload.actionType === 'sigil.live') {
+    return 'live'
+  }
+
+  return undefined
 }
 
 function summariseTaskStats(
