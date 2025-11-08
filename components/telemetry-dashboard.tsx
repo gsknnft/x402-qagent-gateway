@@ -93,6 +93,7 @@ export function TelemetryDashboard({ initialSummary, demoModeEnabled }: Props) {
       vendorSpend: summary.vendorSpend,
       recentActions: summary.recentActions,
       budget: summary.budget,
+      budgetHistory: summary.budgetHistory,
       taskStats: summary.taskStats,
       haltEvent: summary.haltEvent,
       timeline: summary.timeline,
@@ -305,10 +306,10 @@ export function TelemetryDashboard({ initialSummary, demoModeEnabled }: Props) {
                         key={option.key}
                         type="button"
                         onClick={() => setActiveStream(option.key)}
-                        className={`group relative overflow-hidden rounded-2xl border ${isActive ? 'border-emerald-400/60 ring-2 ring-emerald-400/30' : 'border-slate-800 hover:border-slate-700'} bg-slate-950/70 p-4 text-left transition`}
+                        className={`group relative overflow-hidden rounded-2xl border ${isActive ? 'border-emerald-400/60 ring-2 ring-emerald-400/30 shadow-xl shadow-emerald-500/10' : 'border-slate-800 hover:border-slate-700 hover:shadow-lg'} bg-slate-950/70 p-4 text-left transition-all duration-300 transform ${isActive ? 'scale-[1.02]' : 'hover:scale-[1.01]'}`}
                       >
                         <span
-                          className={`pointer-events-none absolute inset-0 bg-gradient-to-br ${option.accent} ${isActive ? 'opacity-25' : 'opacity-10'} mix-blend-overlay transition group-hover:opacity-20`}
+                          className={`pointer-events-none absolute inset-0 bg-gradient-to-br ${option.accent} ${isActive ? 'opacity-25' : 'opacity-10'} mix-blend-overlay transition-opacity duration-300 group-hover:opacity-20`}
                           aria-hidden="true"
                         />
                         <div className="relative flex h-full flex-col justify-between gap-4">
@@ -318,7 +319,7 @@ export function TelemetryDashboard({ initialSummary, demoModeEnabled }: Props) {
                               <p className="mt-1 text-sm text-slate-300">{option.helper}</p>
                             </div>
                             {isActive ? (
-                              <span className="rounded-full bg-emerald-500/20 px-2 py-0.5 text-[11px] font-semibold text-emerald-200">Active</span>
+                              <span className="animate-pulse rounded-full bg-emerald-500/20 px-2 py-0.5 text-[11px] font-semibold text-emerald-200">Active</span>
                             ) : null}
                           </div>
                           <div className="grid grid-cols-2 gap-4 text-sm text-slate-200">
@@ -351,10 +352,20 @@ export function TelemetryDashboard({ initialSummary, demoModeEnabled }: Props) {
                 <button
                   type="button"
                   onClick={() => setLiveUpdates(value => !value)}
-                  className={`inline-flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-semibold transition ${liveUpdates ? 'bg-emerald-500 text-emerald-950 hover:bg-emerald-400' : 'bg-slate-900 text-slate-200 hover:bg-slate-800'}`}
+                  className={`inline-flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-semibold transition-all duration-200 ${liveUpdates ? 'bg-emerald-500 text-emerald-950 hover:bg-emerald-400 shadow-lg shadow-emerald-500/30' : 'bg-slate-900 text-slate-200 hover:bg-slate-800'}`}
                   disabled={isClearing}
                 >
-                  {liveUpdates ? 'Live updates: on' : 'Live updates: off'}
+                  {liveUpdates ? (
+                    <>
+                      <span className="relative flex h-2 w-2">
+                        <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-950 opacity-75" />
+                        <span className="relative inline-flex h-2 w-2 rounded-full bg-emerald-950" />
+                      </span>
+                      Live updates: on
+                    </>
+                  ) : (
+                    'Live updates: off'
+                  )}
                 </button>
                 <button
                   type="button"
@@ -474,6 +485,24 @@ export function TelemetryDashboard({ initialSummary, demoModeEnabled }: Props) {
           </section>
         ) : (
           <>
+            {activeSummary.haltEvent ? (
+              <section className="animate-pulse rounded-2xl border-2 border-rose-500/60 bg-gradient-to-r from-rose-950/80 via-rose-900/50 to-rose-950/80 p-6 shadow-xl">
+                <div className="flex items-start gap-4">
+                  <div className="flex h-10 w-10 items-center justify-center rounded-full bg-rose-500/20 text-2xl">
+                    ⚠️
+                  </div>
+                  <div className="flex-1">
+                    <h2 className="text-xl font-bold text-rose-200">Agent Halted</h2>
+                    <p className="mt-2 text-base text-rose-300">{activeSummary.haltEvent.details}</p>
+                    <div className="mt-3 flex items-center gap-4 text-sm text-rose-400">
+                      <span className="font-mono">Reason: {activeSummary.haltEvent.reason}</span>
+                      <span className="font-mono">{formatTimestamp(activeSummary.haltEvent.timestamp)}</span>
+                    </div>
+                  </div>
+                </div>
+              </section>
+            ) : null}
+
             <SigilPitch
               stream={activeStream}
               sigil={activeSummary.sigilPlay}
@@ -541,6 +570,19 @@ export function TelemetryDashboard({ initialSummary, demoModeEnabled }: Props) {
                 </div>
               </div>
             </section>
+
+            {activeSummary.budgetHistory.length > 0 ? (
+              <section className="rounded-2xl border border-slate-800 bg-slate-900/70 p-6">
+                <div className="flex items-center justify-between">
+                  <h2 className="text-lg font-semibold text-slate-100">Budget Timeline</h2>
+                  <span className="text-xs text-slate-500">Remaining lamports over time</span>
+                </div>
+                <p className="mt-2 text-sm text-slate-400">
+                  Live tracking of budget depletion with halt events marked.
+                </p>
+                <BudgetTimelineChart budgetHistory={activeSummary.budgetHistory} haltEvent={activeSummary.haltEvent} />
+              </section>
+            ) : null}
 
             <section className="grid gap-6 lg:grid-cols-2">
               <div className="rounded-2xl border border-slate-800 bg-slate-900/70 p-6">
@@ -1160,6 +1202,168 @@ function getTimelineCategory(type: TelemetrySummary['timeline'][number]['type'])
     return 'sigil'
   }
   return 'system'
+}
+
+function BudgetTimelineChart({
+  budgetHistory,
+  haltEvent,
+}: {
+  budgetHistory: Array<{ timestamp: string; remainingLamports: number; spentLamports: number; isHalt?: boolean }>
+  haltEvent: { timestamp: string; reason: string; details: string } | null
+}) {
+  const maxLamports = useMemo(() => {
+    if (budgetHistory.length === 0) return 1_000_000
+    const firstEntry = budgetHistory[0]
+    return firstEntry.remainingLamports + firstEntry.spentLamports
+  }, [budgetHistory])
+
+  const chartData = useMemo(() => {
+    if (budgetHistory.length === 0) return []
+    
+    // Sample data for visualization (max 30 points)
+    const step = Math.max(1, Math.floor(budgetHistory.length / 30))
+    return budgetHistory.filter((_, index) => index % step === 0 || index === budgetHistory.length - 1)
+  }, [budgetHistory])
+
+  const haltIndex = useMemo(() => {
+    if (!haltEvent) return -1
+    return chartData.findIndex(entry => entry.timestamp === haltEvent.timestamp)
+  }, [chartData, haltEvent])
+
+  if (chartData.length === 0) {
+    return <p className="mt-6 text-sm text-slate-400">No budget data available.</p>
+  }
+
+  return (
+    <div className="mt-6">
+      <div className="relative h-48 rounded-xl border border-slate-800 bg-slate-900/80 p-4">
+        <svg viewBox="0 0 100 40" className="h-full w-full" preserveAspectRatio="none">
+          {/* Grid lines */}
+          <line x1="0" y1="10" x2="100" y2="10" stroke="#334155" strokeWidth="0.2" strokeDasharray="1 1" />
+          <line x1="0" y1="20" x2="100" y2="20" stroke="#334155" strokeWidth="0.2" strokeDasharray="1 1" />
+          <line x1="0" y1="30" x2="100" y2="30" stroke="#334155" strokeWidth="0.2" strokeDasharray="1 1" />
+
+          {/* Budget line */}
+          <polyline
+            points={chartData
+              .map((entry, index) => {
+                const x = (index / (chartData.length - 1)) * 100
+                const y = 35 - (entry.remainingLamports / maxLamports) * 30
+                return `${x},${y}`
+              })
+              .join(' ')}
+            fill="none"
+            stroke="#10b981"
+            strokeWidth="0.8"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          />
+
+          {/* Gradient fill under the line */}
+          <defs>
+            <linearGradient id="budgetGradient" x1="0%" y1="0%" x2="0%" y2="100%">
+              <stop offset="0%" stopColor="#10b981" stopOpacity="0.3" />
+              <stop offset="100%" stopColor="#10b981" stopOpacity="0.05" />
+            </linearGradient>
+          </defs>
+          <polygon
+            points={`0,35 ${chartData
+              .map((entry, index) => {
+                const x = (index / (chartData.length - 1)) * 100
+                const y = 35 - (entry.remainingLamports / maxLamports) * 30
+                return `${x},${y}`
+              })
+              .join(' ')} 100,35`}
+            fill="url(#budgetGradient)"
+          />
+
+          {/* Data points */}
+          {chartData.map((entry, index) => {
+            const x = (index / (chartData.length - 1)) * 100
+            const y = 35 - (entry.remainingLamports / maxLamports) * 30
+            const isHaltPoint = entry.isHalt || index === haltIndex
+            
+            return (
+              <g key={`point-${entry.timestamp}-${index}`}>
+                <circle
+                  cx={x}
+                  cy={y}
+                  r={isHaltPoint ? 1.2 : 0.6}
+                  fill={isHaltPoint ? '#f43f5e' : '#10b981'}
+                  stroke={isHaltPoint ? '#fecdd3' : '#34d399'}
+                  strokeWidth={isHaltPoint ? 0.3 : 0.2}
+                />
+                {isHaltPoint ? (
+                  <>
+                    <line
+                      x1={x}
+                      y1={y}
+                      x2={x}
+                      y2="38"
+                      stroke="#f43f5e"
+                      strokeWidth="0.3"
+                      strokeDasharray="0.5 0.5"
+                    />
+                    <text
+                      x={x}
+                      y="39.5"
+                      textAnchor="middle"
+                      fontSize="2"
+                      fill="#fca5a5"
+                      fontWeight="bold"
+                    >
+                      ⚠
+                    </text>
+                  </>
+                ) : null}
+              </g>
+            )
+          })}
+        </svg>
+      </div>
+
+      {/* Legend */}
+      <div className="mt-4 flex items-center justify-between text-xs text-slate-500">
+        <div className="flex items-center gap-4">
+          <div className="flex items-center gap-2">
+            <div className="h-2 w-2 rounded-full bg-emerald-500" />
+            <span>Budget remaining</span>
+          </div>
+          {haltEvent ? (
+            <div className="flex items-center gap-2">
+              <div className="h-2 w-2 rounded-full bg-rose-500" />
+              <span>Halt event</span>
+            </div>
+          ) : null}
+        </div>
+        <div className="text-right">
+          <span>
+            {chartData.length} checkpoint{chartData.length !== 1 ? 's' : ''}
+          </span>
+        </div>
+      </div>
+
+      {/* Stats summary */}
+      <div className="mt-4 grid grid-cols-3 gap-4 rounded-lg border border-slate-800 bg-slate-900/60 p-3 text-xs">
+        <div>
+          <p className="text-slate-500">Initial</p>
+          <p className="mt-1 font-semibold text-slate-200">{formatLamports(maxLamports)}</p>
+        </div>
+        <div>
+          <p className="text-slate-500">Current</p>
+          <p className="mt-1 font-semibold text-emerald-300">
+            {formatLamports(chartData[chartData.length - 1].remainingLamports)}
+          </p>
+        </div>
+        <div>
+          <p className="text-slate-500">Spent</p>
+          <p className="mt-1 font-semibold text-rose-300">
+            {formatLamports(chartData[chartData.length - 1].spentLamports)}
+          </p>
+        </div>
+      </div>
+    </div>
+  )
 }
 
 function BudgetMetric({
