@@ -266,9 +266,95 @@ export function TelemetryDashboard({ initialSummary, demoModeEnabled }: Props) {
     return activeSummary.vendorSpend.reduce((max, vendor) => Math.max(max, vendor.amountLamports), 0)
   }, [activeSummary.vendorSpend])
 
-  const maxDuration = useMemo(() => {
-    return filteredActions.reduce((max, action) => Math.max(max, action.durationMs), 0)
-  }, [filteredActions])
+  const durationSamples = useMemo(() => {
+    const seen = new Set<string>()
+    const samples: typeof activeSummary.recentActions = []
+
+    function pushUnique(list: typeof activeSummary.recentActions) {
+      for (const item of list) {
+        if (seen.has(item.correlationId)) {
+          continue
+        }
+        seen.add(item.correlationId)
+        samples.push(item)
+      }
+    }
+
+    pushUnique(activeSummary.recentActions)
+    pushUnique(summary.streams.demo.recentActions)
+    pushUnique(summary.streams.gameboard.recentActions)
+
+    return samples
+  }, [activeSummary.recentActions, summary.streams.demo.recentActions, summary.streams.gameboard.recentActions])
+
+  const actionDurationSeries = useMemo(() => {
+    interface Bucket {
+      key: string
+      label: string
+      durations: number[]
+      latestTimestamp: number
+      lastIso: string | null
+      lastDuration: number
+      count: number
+    }
+
+    const buckets = new Map<string, Bucket>()
+
+    for (const sample of durationSamples) {
+      if (!Number.isFinite(sample.durationMs)) {
+        continue
+      }
+
+      const key = sample.scenarioVariant ?? sample.actionType
+      const label = sample.scenarioVariant ? formatVariantLabel(sample.scenarioVariant) : sample.actionType
+
+      const existing = buckets.get(key)
+      const timestamp = Date.parse(sample.timestamp)
+
+      if (!existing) {
+        buckets.set(key, {
+          key,
+          label,
+          durations: [sample.durationMs],
+          latestTimestamp: Number.isNaN(timestamp) ? -Infinity : timestamp,
+          lastIso: sample.timestamp,
+          lastDuration: sample.durationMs,
+          count: 1,
+        })
+        continue
+      }
+
+      existing.durations.push(sample.durationMs)
+      existing.count += 1
+
+      if (!Number.isNaN(timestamp) && timestamp >= existing.latestTimestamp) {
+        existing.latestTimestamp = timestamp
+        existing.lastIso = sample.timestamp
+        existing.lastDuration = sample.durationMs
+      }
+    }
+
+    return Array.from(buckets.values())
+      .map(bucket => {
+        const maxDuration = bucket.durations.reduce((max, value) => Math.max(max, value), 0)
+        const average = bucket.durations.reduce((sum, value) => sum + value, 0) / bucket.durations.length
+        return {
+          key: bucket.key,
+          label: bucket.label,
+          maxDuration,
+          averageDuration: Math.round(average),
+          lastDuration: bucket.lastDuration,
+          lastIso: bucket.lastIso,
+          runs: bucket.count,
+          sortKey: bucket.latestTimestamp,
+        }
+      })
+      .sort((a, b) => b.sortKey - a.sortKey)
+  }, [durationSamples])
+
+  const maxDurationValue = useMemo(() => {
+    return actionDurationSeries.reduce((max, item) => Math.max(max, item.maxDuration), 0)
+  }, [actionDurationSeries])
 
   const toggleTimelineFilter = (key: TimelineCategory) => {
     setTimelineFilters(prev => ({ ...prev, [key]: !prev[key] }))
@@ -319,6 +405,12 @@ export function TelemetryDashboard({ initialSummary, demoModeEnabled }: Props) {
 
   const primaryScenarioVariant: DemoVariant = activeStream === 'gameboard' ? 'live' : 'classic'
   const primaryScenarioLabel = activeStream === 'gameboard' ? 'Launch live rally' : 'Play sigil demo'
+
+    async function onRunScenario(key: string) {
+      if (!isDemoRunning && !isClearing && DEMO_VARIANTS.some(variant => variant.key === key)) {
+        await runDemoScenario(key as DemoVariant)
+      }
+    }
 
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100">
@@ -682,24 +774,31 @@ export function TelemetryDashboard({ initialSummary, demoModeEnabled }: Props) {
               <div className="space-y-6">
                 <div className="rounded-2xl border border-slate-800 bg-slate-900/70 p-6">
                   <h2 className="text-lg font-semibold text-slate-100">Action Duration</h2>
-                  <p className="mt-2 text-sm text-slate-400">Visualising task runtime in milliseconds (filtered set).</p>
-                  {filteredActions.length === 0 ? (
+                  <p className="mt-2 text-sm text-slate-400">
+                    Aggregated by scenario so scripted drills stay visible even when the live arena dominates.
+                  </p>
+                  {actionDurationSeries.length === 0 ? (
                     <p className="mt-6 text-sm text-slate-400">No data available.</p>
                   ) : (
-                    <ul className="mt-6 space-y-3">
-                      {filteredActions.map(action => {
-                        const ratio = maxDuration > 0 ? Math.max((action.durationMs / maxDuration) * 100, 6) : 0
+                    <ul className="mt-6 space-y-4">
+                      {actionDurationSeries.map(entry => {
+                        const ratio = maxDurationValue > 0 ? Math.max((entry.maxDuration / maxDurationValue) * 100, 6) : 0
                         return (
-                          <li key={`duration-${action.correlationId}`} className="space-y-1">
-                            <div className="flex items-center justify-between text-xs text-slate-400">
-                              <span>{action.actionType}</span>
-                              <span>{action.durationMs} ms</span>
+                          <li key={`duration-${entry.key}`} className="space-y-2">
+                            <div className="flex items-center justify-between text-sm text-slate-200">
+                              <span className="font-semibold">{entry.label}</span>
+                              <span className="font-mono text-xs text-slate-400">{entry.lastDuration} ms</span>
                             </div>
                             <div className="h-2 w-full rounded-full bg-slate-800">
                               <div
-                                className={`h-2 rounded-full ${action.success ? 'bg-emerald-500' : 'bg-rose-500'}`}
+                                className="h-2 rounded-full bg-emerald-500"
                                 style={{ width: `${ratio}%` }}
                               />
+                            </div>
+                            <div className="flex flex-wrap items-center gap-3 text-[11px] uppercase tracking-wide text-slate-500">
+                              <span>Runs: {entry.runs}</span>
+                              <span>Avg: {entry.averageDuration} ms</span>
+                              {entry.lastIso ? <span>Last: {formatRelativeRunLabel(entry.lastIso)}</span> : null}
                             </div>
                           </li>
                         )
