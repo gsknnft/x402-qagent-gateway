@@ -111,7 +111,7 @@ const builds: BuildConfig[] = [
   { name: "renderer", config: path.join(configsDir, "vite.renderer.config.ts") },
 ];
 
-let buildErrors: string[] = [];
+const buildErrors: string[] = [];
 for (const { name, config } of builds) {
   try {
     logger.info(`Building ${name} process with Vite...`);
