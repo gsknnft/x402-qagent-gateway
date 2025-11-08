@@ -47,3 +47,13 @@ next-env.d.ts
 
 # x402 transaction storage
 .verified-transactions.json
+
+# Electron build artifacts
+electron/app/dist/
+electron/release/
+electron/.vite/
+electron/node_modules/.vite-*
+
+# Telemetry logs
+apps/agent-runner/logs/
+*.jsonl

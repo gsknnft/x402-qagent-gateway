@@ -1,10 +1,14 @@
 # X402 Quantum Agent Gateway
 
+![Node.js](https://img.shields.io/badge/node-20.x%2B-green) ![TypeScript](https://img.shields.io/badge/typescript-5.x-blue) ![Solana](https://img.shields.io/badge/solana-devnet%20%7C%20mainnet-purple) ![License](https://img.shields.io/badge/license-MIT-yellow)
+
 **Autonomous AI agents that act as economic entities, transacting via X402 micropayments on Solana.**
 
 This project showcases a complete agent economy framework where AI agents autonomously buy and sell services using the X402 payment protocol. Unlike simple payment-gated content, this demonstrates **agents with budgets, policies, and vendor selection strategies** - true economic autonomy.
 
 > 🏆 **Solana X402 Hackathon Submission** - This project targets three tracks: Best Trustless Agent, Best x402 API Integration, and Best x402 Dev Tool. Built for devnet by default.
+
+📚 **[API Reference](API_REFERENCE.md)** | **[Architecture](ARCHITECTURE.md)** | **[Contributing](CONTRIBUTING.md)** | **[Security](SECURITY.md)** | **[Future Enhancements](FUTURE_ENHANCEMENTS.md)**
 
 ## 🎯 Differentiators
 
@@ -18,13 +22,17 @@ What makes this different from typical X402 demos:
 
 ## Table of Contents
 
-- [What is X402?](#what-is-x402)
-- [Features](#features)
-- [Getting Started](#getting-started)
-- [How It Works](#how-it-works)
-- [Project Structure](#project-structure)
-- [Configuration](#configuration)
-- [Usage](#usage)
+- [🎯 Differentiators](#-differentiators)
+- [✨ Features](#-features)
+- [🚀 Quick Start](#-quick-start)
+- [🏗️ Architecture](#️-architecture)
+- [📦 Packages](#-packages)
+- [🖥️ Desktop App (Electron)](#️-desktop-app-electron)
+- [🌐 Web Dashboard](#-web-dashboard)
+- [🔧 Development](#-development)
+- [📖 Documentation](#-documentation)
+- [🤝 Contributing](#-contributing)
+- [📄 License](#-license)
 
 ---
 
@@ -92,376 +100,574 @@ Autonomous agent that purchases services:
 
 ---
 
-## Features
+## ✨ Features
 
-- **X402 Payment Middleware** - Powered by `x402-next` package
-- **Solana Integration** - Uses Solana blockchain for payment verification
-- **Multiple Price Tiers** - Configure different prices for different routes
-- **Session Management** - Automatic session handling after payment
-- **Type-Safe** - Full TypeScript support with Viem types
-- **Next.js 16** - Built on the latest Next.js App Router
+### Core Capabilities
+
+- **🤖 Economic Autonomy** - Agents with budgets, policies, and vendor selection (not just paywalls)
+- **🔍 Verifiable Lineage** - Full telemetry streams with correlation IDs and signed events
+- **🏪 Multi-Agent Economy** - Agent-to-agent marketplace (seller agent + buyer agent)
+- **🧩 Composable Middleware** - Reusable SDK with decorators and policy hooks
+- **🔗 Integration Ready** - Documented hooks for SigilNet/QVera future integration
+
+### Technical Features
+
+#### Payment Middleware (`@x402-qagent/middleware`)
+- **X402Client** - Payment execution with idempotency & retry logic
+- **PolicyEngine** - Budget caps, rate limits, vendor allowlists
+- **Payment Decorators** - `withPayment()` wrapper for any function
+- **Receipt Verification** - On-chain payment validation
+- **Provenance Tracking** - Complete payment audit trail
+
+#### Agent SDK (`@x402-qagent/agent-sdk`)
+- **BudgetManager** - Spending tracking with reservations
+- **AgentExecutor** - Runs actions with payment & telemetry
+- **ServiceAdapters** - Pluggable service implementations
+- **AgentPlanners** - Action selection strategies (greedy, cost-optimizer)
+- **State Management** - Budget tracking across actions
+
+#### Telemetry Layer (`@x402-qagent/telemetry`)
+- **Multiple Sinks** - Console (colorized), JSONL (audit trail), WebSocket streams
+- **Event Schema** - PaymentInitiated, Settled, ActionCompleted, BudgetDelta
+- **SigilNet Stub** - Integration hooks for future field closure layer
+- **Correlation IDs** - Full lineage tracking across events
+
+#### Desktop Application (Electron)
+- **Agent Control Center** - Desktop app for managing autonomous agents
+- **Real-time Monitoring** - Live agent status and telemetry visualization
+- **Policy Editor** - Visual configuration without JSON editing
+- **Multi-Agent Support** - Manage multiple agents simultaneously
+- **Cross-platform** - Windows, macOS, Linux support
+
+#### Web Dashboard (Next.js)
+- **Telemetry Visualization** - Real-time event stream viewer
+- **Payment History** - Complete transaction log with filtering
+- **Budget Tracking** - Visual budget usage and forecasting
+- **Service Catalog** - Browse available services and vendors
 
 ---
 
-## Quick Start - Agent-to-Agent Demo
-
-### Prerequisites
-- Node.js 20+ or Bun
-- pnpm (recommended) or npm
-
-### 1. Install Dependencies
-```bash
-cd isolation/x402-qagent-gateway
-pnpm install
-```
-
-### 2. Start Seller Service
-```bash
-# Terminal 1
-cd apps/seller-service
-pnpm start
-
-# Seller will listen on http://localhost:3001
-```
-
-### 3. Run Buyer Agent
-```bash
-# Terminal 2
-cd apps/agent-runner
-pnpm start
-
-# Watch as the agent autonomously:
-# - Checks budget
-# - Pays for services
-# - Executes transformations
-# - Emits telemetry
-```
-
-### 4. View Telemetry
-```bash
-# Check logs
-cat apps/agent-runner/logs/agent-telemetry.jsonl | jq
-
-# See events:
-# - payment.initiated
-# - payment.settled
-# - action.started
-# - action.completed
-# - budget.delta
-```
-
-## Getting Started
+## 🚀 Quick Start
 
 ### Prerequisites
 
-- Node.js 18+ or Bun
-- pnpm, npm, or yarn
-- A Solana wallet address to receive payments
+- **Node.js** >= 20.0.0 (recommended: 24.9.0)
+- **pnpm** >= 9.0.0 (recommended: 10.18.0)  
+  Install with: `npm install -g pnpm`
+- **Git** (for cloning)
 
 ### Installation
 
 ```bash
-# Clone or create from template
-npx create-solana-dapp my-app --template x402-template
-
-# Navigate to project
-cd my-app
+# Clone the repository
+git clone https://github.com/gsknnft/x402-qagent-gateway.git
+cd x402-qagent-gateway
 
 # Install dependencies
 pnpm install
-
-# Run development server
-pnpm dev
 ```
 
-Visit `http://localhost:3000` to see your app running.
+### Running the Agent-to-Agent Demo
 
-### Test the Payment Flow
+The quickest way to see the system in action:
 
-1. Navigate to `http://localhost:3000`
-2. Click on "Access Cheap Content" or "Access Expensive Content"
-3. You'll be presented with a Coinbase Pay payment dialog
-4. Complete the payment
-5. Access is granted and you'll see the protected content
+```bash
+# Terminal 1: Start the Seller Service
+cd apps/seller-service
+pnpm start
+# Seller will listen on http://localhost:3001
+
+# Terminal 2: Run the Buyer Agent
+cd apps/agent-runner
+pnpm start
+# Watch the agent autonomously purchase services!
+```
+
+**What happens:**
+1. Seller service starts, offering text transformation for $0.01/request
+2. Buyer agent initializes with 1M lamports budget (~$0.67)
+3. Agent autonomously executes tasks:
+   - Checks budget availability
+   - Pays seller via X402 protocol
+   - Receives service results
+   - Emits telemetry events
+   - Updates budget state
+
+### Running the Web Dashboard
+
+```bash
+# Start Next.js development server
+pnpm dev
+
+# Visit http://localhost:3000
+# - View real-time telemetry
+# - Monitor agent activity
+# - Track payment history
+```
+
+### Running the Electron Desktop App
+
+```bash
+cd electron
+pnpm dev
+
+# Electron window opens with:
+# - Agent control center
+# - Real-time monitoring
+# - Policy configuration
+# - Multi-agent management
+```
+
+### View Telemetry
+
+```bash
+# View telemetry log (after running agent)
+cat apps/agent-runner/logs/agent-telemetry.jsonl | jq
+
+# Filter by event type
+cat apps/agent-runner/logs/agent-telemetry.jsonl | jq 'select(.type == "payment.settled")'
+
+# Trace specific correlation ID
+cat apps/agent-runner/logs/agent-telemetry.jsonl | jq 'select(.correlationId == "abc-123")'
+```
 
 ---
 
-## How It Works
+## 🖥️ Desktop App (Electron)
 
-This template uses the `x402-next` package which provides middleware to handle the entire payment flow.
+The X402 Quantum Agent Gateway includes a full-featured **Electron desktop application** for managing autonomous agents with a beautiful UI.
 
-### Middleware Configuration
+### Features
 
-The core of the payment integration is in `middleware.ts`:
+#### Agent Control Center
+- **Multi-Agent Management** - Run and monitor multiple agents simultaneously
+- **Real-Time Dashboard** - Live agent status, budget tracking, and task execution
+- **Visual Policy Editor** - Configure agent policies without editing JSON files
+- **Telemetry Viewer** - Stream and filter events in real-time
 
+#### Technology Stack
+- **Electron 39+** - Latest Electron with Node 24 runtime
+- **React 19** - Modern React with concurrent features
+- **TypeScript 5.9** - Full type safety
+- **Vite** - Fast HMR and optimized builds
+- **PNPM Workspaces** - Isolated package management
+
+### Quick Start
+
+```bash
+cd electron
+pnpm install   # Install dependencies (auto-builds on postinstall)
+pnpm dev       # Start development mode with hot reload
+```
+
+**Development Mode:**
+- Vite dev server runs on port 5173
+- Electron window launches automatically
+- Hot module replacement (HMR) for instant updates
+- React DevTools available
+
+### Building for Production
+
+```bash
+cd electron
+pnpm build     # Build main, preload, and renderer
+pnpm package   # Create distributable (dmg/exe/AppImage)
+```
+
+**Output:**
+- **macOS:** `.dmg` installer (universal: arm64 + x64)
+- **Windows:** `.exe` NSIS installer (x64 + ia32)
+- **Linux:** `.AppImage` + `.deb` + `.rpm` packages
+
+**Build artifacts:** `electron/release/build/`
+
+### Architecture
+
+```
+electron/
+├── src/
+│   ├── main/        # Electron main process (Node.js)
+│   ├── preload/     # Secure IPC bridge
+│   └── renderer/    # React UI (Next.js integration ready)
+├── configs/         # Vite build configurations
+├── scripts/         # Build automation scripts
+└── app/dist/        # Build output
+```
+
+**Key Features:**
+- **Context Isolation** - Secure IPC via preload bridge
+- **Incremental Builds** - Persistent Vite cache for faster rebuilds
+- **Multi-Platform** - Cross-platform build support
+- **Native Modules** - Automatic native module rebuild
+
+### Electron + Next.js Integration
+
+The Electron app can run the Next.js web dashboard embedded:
+
+```bash
+# Terminal 1: Start Next.js dev server
+pnpm dev
+
+# Terminal 2: Start Electron (pointing to Next.js)
+cd electron
+NEXT_URL=http://localhost:3000 pnpm dev
+```
+
+This gives you:
+- Full Next.js features in Electron window
+- Real-time telemetry from agents
+- Payment history and analytics
+- Service catalog browsing
+
+### Deployment
+
+```bash
+# macOS code signing (requires Apple Developer cert)
+pnpm package --mac --publish never
+
+# Windows code signing (requires cert)
+pnpm package --win --publish never
+
+# Linux (no signing required)
+pnpm package --linux --publish never
+```
+
+**Auto-update ready:** Configured for GitHub Releases distribution
+
+For detailed build documentation, see [electron/BUILD.md](electron/BUILD.md)
+
+---
+
+## 📦 Packages
+
+The project is organized as a **pnpm monorepo** with reusable packages:
+
+### `@x402-qagent/middleware`
+
+Payment middleware for X402 protocol integration.
+
+**Install:**
+```bash
+pnpm add @x402-qagent/middleware
+```
+
+**Usage:**
 ```typescript
-import { Address } from 'viem'
-import { paymentMiddleware, Resource, Network } from 'x402-next'
-import { NextRequest } from 'next/server'
+import { X402Client, PolicyEngine, withPayment } from '@x402-qagent/middleware'
 
-// Your Solana wallet address that receives payments
-const address = 'CmGgLQL36Y9ubtTsy2zmE46TAxwCBm66onZmPPhUWNqv' as Address
-const network = 'solana-devnet' as Network
-const facilitatorUrl = 'https://x402.org/facilitator' as Resource
-const cdpClientKey = '3uyu43EHCwgVIQx6a8cIfSkxp6cXgU30'
+// Create payment client
+const client = new X402Client({
+  network: 'solana-devnet',
+  facilitatorUrl: 'https://x402.org/facilitator'
+})
 
-const x402PaymentMiddleware = paymentMiddleware(
-  address,
-  {
-    '/content/cheap': {
-      price: '$0.01',
-      config: {
-        description: 'Access to cheap content',
-      },
-      network,
-    },
-    '/content/expensive': {
-      price: '$0.25',
-      config: {
-        description: 'Access to expensive content',
-      },
-      network,
-    },
-  },
-  {
-    url: facilitatorUrl,
-  },
-  {
-    cdpClientKey,
-    appLogo: '/logos/x402-examples.png',
-    appName: 'x402 Demo',
-    sessionTokenEndpoint: '/api/x402/session-token',
-  },
+// Wrap function with automatic payment
+const paidFetch = withPayment(fetch, {
+  client,
+  vendor: 'VendorAddress',
+  price: '$0.01'
+})
+
+// Use it - payment happens automatically!
+const data = await paidFetch('https://api.example.com/data')
+```
+
+**Exports:**
+- `X402Client` - Payment client with retry logic
+- `PolicyEngine` - Budget and rate limit enforcement
+- `withPayment()` - Payment decorator
+- `isValidAddress()`, `isValidSignature()` - Validation utilities
+- TypeScript types for all interfaces
+
+### `@x402-qagent/agent-sdk`
+
+Framework for building autonomous economic agents.
+
+**Install:**
+```bash
+pnpm add @x402-qagent/agent-sdk
+```
+
+**Usage:**
+```typescript
+import {
+  BudgetManager,
+  DefaultAgentExecutor,
+  GreedyPlanner
+} from '@x402-qagent/agent-sdk'
+
+// Create budget manager
+const budget = new BudgetManager(1000000)  // 1M lamports
+
+// Create executor
+const executor = new DefaultAgentExecutor(
+  budget,
+  'my-agent',
+  emitTelemetry
 )
 
-export const middleware = (req: NextRequest) => {
-  const delegate = x402PaymentMiddleware as unknown as (
-    request: NextRequest,
-  ) => ReturnType<typeof x402PaymentMiddleware>
-  return delegate(req)
-}
-
-export const config = {
-  matcher: ['/((?!_next/static|_next/image|favicon.ico).*)', '/'],
-}
+// Execute action with automatic payment
+const result = await executor.execute(action, serviceAdapter)
 ```
 
-### What Happens Under the Hood
+**Exports:**
+- `BudgetManager` - Budget tracking with reservations
+- `DefaultAgentExecutor` - Action executor with payment
+- `GreedyPlanner`, `CostOptimizerPlanner` - Decision strategies
+- `ServiceAdapter` - Interface for service implementations
+- TypeScript types for all interfaces
 
-1. **Request Interception** - Middleware checks if the requested route requires payment
-2. **Payment Check** - If the route is protected, middleware checks for valid payment session
-3. **402 Response** - If no valid payment, returns 402 with payment requirements
-4. **Coinbase Pay Widget** - User sees payment modal powered by Coinbase
-5. **Payment Verification** - After payment, transaction is verified on Solana blockchain via facilitator
-6. **Session Creation** - Valid payment creates a session token
-7. **Access Granted** - User can now access protected content
+### `@x402-qagent/telemetry`
+
+Event tracking and lineage for agent operations.
+
+**Install:**
+```bash
+pnpm add @x402-qagent/telemetry
+```
+
+**Usage:**
+```typescript
+import { ConsoleSink, JSONLSink } from '@x402-qagent/telemetry'
+
+// Create telemetry sinks
+const console = new ConsoleSink({ colorize: true })
+const file = new JSONLSink({ filepath: './logs/agent.jsonl' })
+
+// Emit events
+await console.emit({
+  type: 'payment.settled',
+  timestamp: new Date().toISOString(),
+  correlationId: 'abc-123',
+  agentId: 'agent-001',
+  provenance: {},
+  payload: { receipt, verified: true }
+})
+```
+
+**Exports:**
+- `ConsoleSink` - Colorized console output
+- `JSONLSink` - JSONL file writer for audit trail
+- `SigilNetSink` - Integration stub for SigilNet
+- Event type definitions
+- TypeScript types for all interfaces
+
+### Package Development
+
+```bash
+# Work on specific package
+cd packages/x402-middleware
+
+# Run tests
+pnpm test
+
+# Build package
+pnpm build
+
+# Link for local development
+pnpm link
+
+# In another project
+pnpm link @x402-qagent/middleware
+```
+
+For complete API documentation, see **[API_REFERENCE.md](API_REFERENCE.md)**
 
 ---
 
-## Project Structure
+## 🌐 Web Dashboard
 
+Next.js web application for visualizing agent activity and telemetry.
+
+### Features
+
+- **Real-Time Telemetry Stream** - WebSocket-powered event viewer
+- **Payment History** - Filterable transaction log with correlation tracing
+- **Budget Analytics** - Visual charts for budget usage and forecasting
+- **Service Catalog** - Browse available services and vendors
+- **Agent Status** - Monitor agent health and performance
+
+### Running
+
+```bash
+pnpm dev
+# Visit http://localhost:3000
 ```
-x402-template/
-├── middleware.ts              # 🛡️  X402 payment middleware configuration
-├── app/
-│   ├── page.tsx              # 🏠 Homepage with links to protected content
-│   ├── layout.tsx            # 📐 Root layout
-│   ├── globals.css           # 🎨 Global styles
-│   └── content/
-│       └── [type]/
-│           └── page.tsx      # 🔒 Protected content pages
-├── components/
-│   └── cats-component.tsx    # 🐱 Example content component
-├── lib/                      # 📚 Utility functions (if needed)
-├── public/                   # 📁 Static assets
-└── package.json              # 📦 Dependencies
+
+### API Endpoints
+
+The Next.js app provides REST APIs for telemetry access:
+
+**GET** `/api/telemetry/log` - Fetch telemetry events
+```bash
+curl http://localhost:3000/api/telemetry/log?type=payment.settled
+```
+
+**GET** `/api/telemetry/summary` - Get event summary statistics
+```bash
+curl http://localhost:3000/api/telemetry/summary
+```
+
+**GET** `/api/telemetry/stream` - WebSocket stream of real-time events
+```javascript
+const ws = new WebSocket('ws://localhost:3000/api/telemetry/stream')
+ws.onmessage = (event) => console.log(JSON.parse(event.data))
+```
+
+**POST** `/api/telemetry/clear` - Clear telemetry log
+```bash
+curl -X POST http://localhost:3000/api/telemetry/clear
+```
+
+### Building for Production
+
+```bash
+pnpm build
+pnpm start  # Production server
 ```
 
 ---
 
-## Configuration
+## 🔧 Development
+
+### Workspace Commands
+
+```bash
+# Install all dependencies
+pnpm install
+
+# Run linter
+pnpm lint
+
+# Build all packages
+pnpm build
+
+# Clean telemetry logs
+pnpm clean:telemetry
+```
+
+### Working on Packages
+
+```bash
+# Build specific package
+pnpm --filter @x402-qagent/middleware build
+
+# Test specific package
+pnpm --filter @x402-qagent/middleware test
+
+# Add dependency to package
+pnpm --filter @x402-qagent/middleware add viem
+```
 
 ### Environment Variables
 
-The template uses sensible defaults, but you can customize by creating a `.env.local` file:
+Create `.env.local` for local development:
 
 ```bash
-# Your Solana wallet address (where payments go)
-NEXT_PUBLIC_WALLET_ADDRESS=your_solana_address_here
-
-# Network (solana-devnet or solana-mainnet-beta)
+# Solana network
 NEXT_PUBLIC_NETWORK=solana-devnet
 
-# Coinbase Pay Client Key (get from Coinbase Developer Portal)
-NEXT_PUBLIC_CDP_CLIENT_KEY=your_client_key_here
-
-# Facilitator URL (service that verifies payments)
+# X402 facilitator
 NEXT_PUBLIC_FACILITATOR_URL=https://x402.org/facilitator
+
+# SigilNet integration (optional)
+SIGILNET_GATEWAY_URL=
+SIGILNET_AUTH_TOKEN=
+
+# QVera integration (optional)
+QVERA_PROTOCOL_URL=
 ```
 
-### Customizing Routes and Prices
+### Code Quality
 
-Edit `middleware.ts` to add or modify protected routes:
+```bash
+# Run ESLint
+pnpm lint
 
-```typescript
-const x402PaymentMiddleware = paymentMiddleware(
-  address,
-  {
-    '/premium': {
-      price: '$1.00',
-      config: {
-        description: 'Premium content access',
-      },
-      network: 'solana-mainnet-beta',
-    },
-    '/api/data': {
-      price: '$0.05',
-      config: {
-        description: 'API data access',
-      },
-      network: 'solana-mainnet-beta',
-    },
-  },
-  // ... rest of config
-)
+# Auto-fix issues
+pnpm lint --fix
+
+# Type checking
+pnpm tsc --noEmit
 ```
 
-### Network Selection
+---
 
-You can use different networks:
+## 📖 Documentation
 
-- `solana-devnet` - For testing (use test tokens)
-- `solana-mainnet-beta` - For production (real money!)
-- `solana-testnet` - Alternative test network
+- **[API Reference](API_REFERENCE.md)** - Complete API documentation for all packages
+- **[Architecture](ARCHITECTURE.md)** - System design and component details
+- **[Demo Storyboard](DEMO_STORYBOARD.md)** - 90-second demo walkthrough for judges
+- **[Submission](SUBMISSION.md)** - Hackathon submission details
+- **[SigilNet Integration](SIGILNET_INTEGRATION.md)** - Integration guide for SigilNet/QVera
+- **[Future Enhancements](FUTURE_ENHANCEMENTS.md)** - Roadmap and optimization strategies
+- **[Security](SECURITY.md)** - Security best practices and vulnerability reporting
+- **[Contributing](CONTRIBUTING.md)** - Development guidelines and PR process
+- **[Electron Build Guide](electron/BUILD.md)** - Detailed Electron build documentation
 
 ---
 
-## Usage
+## 🤝 Contributing
 
-### Creating Protected Content
+We welcome contributions! Please see [CONTRIBUTING.md](CONTRIBUTING.md) for:
+- Development setup
+- Code standards
+- Testing guidelines
+- Pull request process
 
-Simply create pages under protected routes defined in your middleware:
+### Quick Contribution Steps
 
-```tsx
-// app/content/premium/page.tsx
-export default async function PremiumPage() {
-  return (
-    <div>
-      <h1>Premium Content</h1>
-      <p>This content requires payment to access.</p>
-      {/* Your protected content here */}
-    </div>
-  )
-}
-```
-
-### Adding New Price Tiers
-
-1. Add the route configuration in `middleware.ts`
-2. Create the corresponding page component
-3. Users will automatically be prompted to pay when accessing the route
-
-### Testing with Devnet
-
-When using `solana-devnet`:
-
-- Payments use test tokens (no real money)
-- Perfect for development and testing
-- Get test tokens from [Solana Faucet](https://faucet.solana.com/)
-
-### Going to Production
-
-To accept real payments:
-
-1. Change network to `solana-mainnet-beta` in `middleware.ts`
-2. Update your wallet address to your production wallet
-3. Test thoroughly before deploying!
-4. Consider implementing additional security measures
+1. Fork the repository
+2. Create a feature branch (`git checkout -b feature/amazing-feature`)
+3. Make your changes
+4. Run tests (`pnpm test`)
+5. Run linter (`pnpm lint`)
+6. Commit your changes (`git commit -m 'Add amazing feature'`)
+7. Push to the branch (`git push origin feature/amazing-feature`)
+8. Open a Pull Request
 
 ---
 
-## Dependencies
+## 📄 License
 
-This template uses minimal dependencies:
-
-```json
-{
-  "dependencies": {
-    "next": "16.0.0",
-    "react": "19.2.0",
-    "react-dom": "19.2.0",
-    "viem": "^2.38.5",
-    "x402-next": "^0.7.1"
-  }
-}
-```
-
-- **next** - Next.js framework
-- **react** / **react-dom** - React library
-- **viem** - Type-safe Ethereum/Solana types
-- **x402-next** - X402 payment middleware (handles all payment logic)
+MIT License - See [LICENSE](LICENSE) file for details.
 
 ---
 
-## Learn More
+## 🙏 Acknowledgments
 
-### X402 Protocol
-
-- [X402 Specification](https://github.com/coinbase/x402) - Official protocol documentation
-- [X402 Next Package](https://www.npmjs.com/package/x402-next) - Middleware used in this template
-
-### Solana
-
-- [Solana Documentation](https://docs.solana.com/) - Official Solana docs
-- [Solana Explorer](https://explorer.solana.com/) - View transactions on-chain
-
-### Coinbase Developer
-
-- [CDP Docs](https://docs.cdp.coinbase.com/) - Coinbase Developer documentation
+- **X402 Protocol** - [Coinbase X402 Specification](https://github.com/coinbase/x402)
+- **Solana** - [Solana Documentation](https://docs.solana.com/)
+- **SigilNet** - Categorical trust semantics and field closure
+- **QVera** - Protocol infrastructure and indexing substrate
 
 ---
 
-## Troubleshooting
+## 🚀 What's Next?
 
-### Payment Not Working
+See [FUTURE_ENHANCEMENTS.md](FUTURE_ENHANCEMENTS.md) for our roadmap including:
 
-1. Check that your wallet address in `middleware.ts` is correct
-2. Verify you're using the correct network (devnet vs mainnet)
-3. Check browser console for errors
-4. Ensure Coinbase Pay client key is valid
+**Short-term (0-3 months):**
+- Real X402 facilitator integration
+- Enhanced agent strategies
+- Comprehensive test suite
+- Desktop app enhancements
 
-### 402 Errors Not Displaying
+**Medium-term (3-12 months):**
+- Agent marketplace
+- Multi-agent coordination
+- Advanced analytics
+- SigilNet integration
+- Cross-chain support
 
-1. Check middleware matcher configuration in `middleware.ts`
-2. Verify route paths match your page structure
-3. Clear Next.js cache: `rm -rf .next && pnpm dev`
-
-### Session Not Persisting
-
-1. Check that cookies are enabled in your browser
-2. Verify session token endpoint is configured
-3. Check for CORS issues if using custom domains
-
----
-
-## Support
-
-For issues specific to this template, please open an issue on the repository.
-
-For X402 protocol questions, refer to the [official documentation](https://github.com/coinbase/x402).
+**Long-term (1-2 years):**
+- AI-powered optimization
+- Enterprise features
+- Regulatory compliance
+- Global agent economy at scale
 
 ---
 
-## License
+**Built with ❤️ for the Solana X402 Hackathon**
 
-MIT License - Feel free to use this template for your projects.
-
----
-
-## Contributing
-
-Contributions are welcome! Please feel free to submit a Pull Request.
-
----
-
-**Built with ❤️ from [Kronos](https://www.kronos.build/)**
+🌟 Star us on GitHub | 🐛 Report Issues | 💡 Request Features | 📖 Read the Docs
