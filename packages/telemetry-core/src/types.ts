@@ -127,6 +127,27 @@ export interface AgentHaltedEvent extends BaseEvent {
   }
 }
 
+export type SigilRole = 'agent' | 'vendor' | 'hub' | 'goal' | 'observer' | 'other'
+
+export interface SigilEndpoint {
+  id: string
+  label?: string
+  role?: SigilRole
+}
+
+export interface SigilTransferEvent extends BaseEvent {
+  type: 'sigil.transfer'
+  payload: {
+    tokenId: string
+    sequence: number
+    from: SigilEndpoint | null
+    to: SigilEndpoint
+    intent: string
+    narrative?: string
+    meta?: Record<string, unknown>
+  }
+}
+
 /**
  * Union of all event types
  */
@@ -139,6 +160,7 @@ export type TelemetryEvent =
   | SLAOutcomeEvent
   | BudgetDeltaEvent
   | AgentHaltedEvent
+  | SigilTransferEvent
 
 /**
  * Telemetry sink interface - pluggable event destinations

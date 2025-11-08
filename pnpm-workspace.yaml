@@ -1,5 +1,11 @@
+packages:
+  - apps/*
+  - packages/*
+  - electron
+
 onlyBuiltDependencies:
   - bufferutil
+  - electron
   - keccak
   - sharp
   - unrs-resolver
