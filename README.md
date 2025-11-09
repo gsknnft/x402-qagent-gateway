@@ -8,7 +8,7 @@ This project showcases a complete agent economy framework where AI agents autono
 
 > 🏆 **Solana X402 Hackathon Submission** - This project targets three tracks: Best Trustless Agent, Best x402 API Integration, and Best x402 Dev Tool. Built for devnet by default.
 
-📚 **[API Reference](API_REFERENCE.md)** | **[Architecture](ARCHITECTURE.md)** | **[Contributing](CONTRIBUTING.md)** | **[Security](SECURITY.md)** | **[Future Enhancements](FUTURE_ENHANCEMENTS.md)**
+📚 **[API Reference](API_REFERENCE.md)** | **[Architecture](ARCHITECTURE.md)** | **[Contributing](CONTRIBUTING.md)** | **[Security](SECURITY.md)** | **[Future Enhancements](FUTURE_ENHANCEMENTS.md)** | **[X402 Ecosystem Contributions](X402_ECOSYSTEM_CONTRIBUTIONS.md)**
 
 ## 🎯 Differentiators
 
@@ -595,6 +595,7 @@ pnpm tsc --noEmit
 
 ## 📖 Documentation
 
+### Core Documentation
 - **[API Reference](API_REFERENCE.md)** - Complete API documentation for all packages
 - **[Architecture](ARCHITECTURE.md)** - System design and component details
 - **[Demo Storyboard](DEMO_STORYBOARD.md)** - 90-second demo walkthrough for judges
@@ -604,6 +605,18 @@ pnpm tsc --noEmit
 - **[Security](SECURITY.md)** - Security best practices and vulnerability reporting
 - **[Contributing](CONTRIBUTING.md)** - Development guidelines and PR process
 - **[Electron Build Guide](electron/BUILD.md)** - Detailed Electron build documentation
+
+### X402 Ecosystem Contributions
+- **[Ecosystem Roadmap](X402_ECOSYSTEM_CONTRIBUTIONS.md)** - Strategic contributions to X402 protocol ecosystem
+
+### Tutorials
+- **[Getting Started](docs/tutorials/GETTING_STARTED.md)** - Build your first X402 agent in 15 minutes
+- **[Custom Adapters](docs/tutorials/CUSTOM_ADAPTERS.md)** - Integrate any X402-enabled service
+
+### Advanced Patterns
+- **[Reputation System](docs/reputation/ARCHITECTURE.md)** - Trust-based vendor selection
+- **[Privacy Patterns](docs/privacy/PATTERNS.md)** - Privacy-preserving agent design
+- **[Fraud Detection](docs/fraud-detection/PATTERNS.md)** - Protect agents from malicious vendors
 
 ---
 
