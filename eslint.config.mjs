@@ -12,6 +12,10 @@ const eslintConfig = defineConfig([
     'out/**',
     'build/**',
     'next-env.d.ts',
+    // Electron - has its own lint config
+    'electron/**',
+    // Kora SDK
+    'packages/kora/**',
   ]),
 ])
 

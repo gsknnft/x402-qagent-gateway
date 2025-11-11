@@ -1246,12 +1246,49 @@ function SigilPitchField({
   const nodes = Object.values(layout)
 
   return (
-    <div className="rounded-xl border border-slate-800 bg-slate-900/80 p-4">
-      <svg viewBox="0 0 100 60" className="h-64 w-full">
-        <rect x="1" y="1" width="98" height="58" rx="8" fill="none" stroke="#1f2a40" strokeWidth="1.2" />
-        <line x1="50" y1="1" x2="50" y2="59" stroke="#1f2a40" strokeWidth="0.7" strokeDasharray="2.5 3" />
-        <circle cx="50" cy="30" r="9" stroke="#1f2a40" strokeWidth="0.7" fill="none" strokeDasharray="3 2" />
+    <div className="rounded-xl border border-slate-800 bg-gradient-to-br from-slate-900/90 via-slate-950/95 to-slate-900/90 p-6 shadow-2xl">
+      <svg viewBox="0 0 120 75" className="h-96 w-full" preserveAspectRatio="xMidYMid meet">
+        {/* Gradient definitions for visual depth */}
+        <defs>
+          <radialGradient id="pitchGlow" cx="50%" cy="50%">
+            <stop offset="0%" stopColor="#1e293b" stopOpacity="0.1" />
+            <stop offset="100%" stopColor="#0f172a" stopOpacity="0.05" />
+          </radialGradient>
+          <filter id="glow">
+            <feGaussianBlur stdDeviation="1.5" result="coloredBlur"/>
+            <feMerge>
+              <feMergeNode in="coloredBlur"/>
+              <feMergeNode in="SourceGraphic"/>
+            </feMerge>
+          </filter>
+          <filter id="pulseGlow">
+            <feGaussianBlur stdDeviation="2" result="coloredBlur"/>
+            <feMerge>
+              <feMergeNode in="coloredBlur"/>
+              <feMergeNode in="SourceGraphic"/>
+            </feMerge>
+          </filter>
+        </defs>
 
+        {/* Pitch background with subtle glow */}
+        <rect x="0" y="0" width="120" height="75" fill="url(#pitchGlow)" />
+        
+        {/* Pitch border with rounded corners */}
+        <rect x="2" y="2" width="116" height="71" rx="10" fill="none" stroke="#1e3a5f" strokeWidth="1.5" opacity="0.6" />
+        
+        {/* Center line */}
+        <line x1="60" y1="2" x2="60" y2="73" stroke="#1e3a5f" strokeWidth="1" strokeDasharray="3 4" opacity="0.5" />
+        
+        {/* Center circle */}
+        <circle cx="60" cy="37.5" r="12" stroke="#1e3a5f" strokeWidth="1" fill="none" strokeDasharray="4 3" opacity="0.4" />
+        
+        {/* Corner arcs for visual interest */}
+        <path d="M 2 2 Q 2 12, 12 12" stroke="#1e3a5f" strokeWidth="0.8" fill="none" opacity="0.3" />
+        <path d="M 118 2 Q 118 12, 108 12" stroke="#1e3a5f" strokeWidth="0.8" fill="none" opacity="0.3" />
+        <path d="M 2 73 Q 2 63, 12 63" stroke="#1e3a5f" strokeWidth="0.8" fill="none" opacity="0.3" />
+        <path d="M 118 73 Q 118 63, 108 63" stroke="#1e3a5f" strokeWidth="0.8" fill="none" opacity="0.3" />
+
+        {/* Pass lines with animation effect */}
         {passes.map((pass, index) => {
           const fromPoint = pass.from ? layout[pass.from.id] : undefined
           const toPoint = layout[pass.to.id]
@@ -1259,45 +1296,127 @@ function SigilPitchField({
             return null
           }
 
-          const startX = fromPoint ? fromPoint.x : 50
-          const startY = fromPoint ? fromPoint.y : 30
+          const startX = fromPoint ? fromPoint.x : 60
+          const startY = fromPoint ? fromPoint.y : 37.5
           const color = getPassColor(pass)
           const emphasis = pass.sequence === activeSequence
-          const opacity = 0.35 + (index / Math.max(passes.length, 1)) * 0.45
+          const opacity = 0.4 + (index / Math.max(passes.length, 1)) * 0.5
 
           return (
-            <line
-              key={`pass-${pass.sequence}`}
-              x1={startX}
-              y1={startY}
-              x2={toPoint.x}
-              y2={toPoint.y}
-              stroke={color}
-              strokeWidth={emphasis ? 1.8 : 1.1}
-              strokeOpacity={opacity}
-              strokeLinecap="round"
-            />
+            <g key={`pass-${pass.sequence}`}>
+              {/* Glow effect for emphasized passes */}
+              {emphasis && (
+                <line
+                  x1={startX}
+                  y1={startY}
+                  x2={toPoint.x}
+                  y2={toPoint.y}
+                  stroke={color}
+                  strokeWidth={4}
+                  strokeOpacity={0.3}
+                  strokeLinecap="round"
+                  filter="url(#glow)"
+                  className="animate-pulse"
+                />
+              )}
+              <line
+                x1={startX}
+                y1={startY}
+                x2={toPoint.x}
+                y2={toPoint.y}
+                stroke={color}
+                strokeWidth={emphasis ? 2.2 : 1.4}
+                strokeOpacity={opacity}
+                strokeLinecap="round"
+                className={emphasis ? 'animate-pulse' : ''}
+              >
+                {emphasis && (
+                  <animate
+                    attributeName="stroke-opacity"
+                    values={`${opacity};${Math.min(opacity + 0.3, 1)};${opacity}`}
+                    dur="1.5s"
+                    repeatCount="indefinite"
+                  />
+                )}
+              </line>
+              {/* Directional arrow for active pass */}
+              {emphasis && (
+                <marker
+                  id={`arrow-${pass.sequence}`}
+                  viewBox="0 0 10 10"
+                  refX="5"
+                  refY="5"
+                  markerWidth="4"
+                  markerHeight="4"
+                  orient="auto-start-reverse"
+                >
+                  <path d="M 0 0 L 10 5 L 0 10 z" fill={color} />
+                </marker>
+              )}
+            </g>
           )
         })}
 
+        {/* Participant nodes with enhanced visuals */}
         {nodes.map(node => {
           const isHolder = currentHolder?.id === node.participant.id
+          const nodeColor = roleColor(node.participant.role)
+          
           return (
             <g key={node.participant.id}>
+              {/* Outer glow for current holder */}
+              {isHolder && (
+                <circle
+                  cx={node.x}
+                  cy={node.y}
+                  r={6.5}
+                  fill="none"
+                  stroke="#fde68a"
+                  strokeWidth={1.5}
+                  opacity={0.5}
+                  filter="url(#pulseGlow)"
+                  className="animate-pulse"
+                />
+              )}
+              {/* Participant circle */}
               <circle
                 cx={node.x}
                 cy={node.y}
-                r={isHolder ? 3.8 : 3}
-                fill={roleColor(node.participant.role)}
+                r={isHolder ? 4.5 : 3.5}
+                fill={nodeColor}
                 stroke={isHolder ? '#fde68a' : '#0f172a'}
-                strokeWidth={isHolder ? 1.4 : 1}
+                strokeWidth={isHolder ? 1.8 : 1.2}
+                filter={isHolder ? 'url(#glow)' : undefined}
+                className={isHolder ? 'animate-pulse' : 'transition-all duration-300'}
+              >
+                {isHolder && (
+                  <animate
+                    attributeName="r"
+                    values={`4.5;5.2;4.5`}
+                    dur="2s"
+                    repeatCount="indefinite"
+                  />
+                )}
+              </circle>
+              {/* Label background for better readability */}
+              <rect
+                x={node.x - (node.participant.label.length * 1.5)}
+                y={node.y - (isHolder ? 8.5 : 7.5)}
+                width={node.participant.label.length * 3}
+                height={4}
+                rx={1}
+                fill="#0f172a"
+                opacity={0.8}
               />
+              {/* Participant label */}
               <text
                 x={node.x}
                 y={node.y - (isHolder ? 6 : 5)}
                 textAnchor="middle"
-                fontSize="3"
-                fill="#94a3b8"
+                fontSize={isHolder ? 3.5 : 3}
+                fill={isHolder ? '#fde68a' : '#94a3b8'}
+                fontWeight={isHolder ? 'bold' : 'normal'}
+                className="transition-all duration-300"
               >
                 {node.participant.label}
               </text>
@@ -1328,8 +1447,8 @@ function computeSigilLayout(participants: SigilParticipant[]) {
   sorted.forEach((participant, index) => {
     const angle = (index / count) * Math.PI * 2
     const radius = roleRadius(participant.role)
-    const x = 50 + radius * Math.cos(angle)
-    const y = 30 + radius * Math.sin(angle)
+    const x = 60 + radius * Math.cos(angle)
+    const y = 37.5 + radius * Math.sin(angle)
     result[participant.id] = { participant, x, y }
   })
 
@@ -1356,17 +1475,17 @@ function layoutRolePriority(role: SigilParticipant['role']) {
 function roleRadius(role: SigilParticipant['role']) {
   switch (role) {
     case 'hub':
-      return 6
+      return 8
     case 'agent':
-      return 22
+      return 28
     case 'vendor':
-      return 27
+      return 34
     case 'goal':
-      return 32
+      return 40
     case 'observer':
-      return 36
+      return 45
     default:
-      return 24
+      return 30
   }
 }
 
