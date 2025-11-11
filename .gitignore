@@ -57,3 +57,4 @@ electron/node_modules/.vite-*
 # Telemetry logs
 apps/agent-runner/logs/
 *.jsonl
+apps/agent-runner/logs/*.jsonl
