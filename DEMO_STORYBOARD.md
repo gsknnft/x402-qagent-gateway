@@ -57,7 +57,8 @@ $ pnpm start
 **What You See:**
 ```bash
 $ cat examples/agent-to-agent-demo/policies/buyer-greedy.json
-
+```
+```json
 {
   "agentId": "buyer-agent-greedy",
   "strategy": "greedy",
@@ -345,7 +346,7 @@ sigilnetSink.emit(event)
 
 **Try it yourself:**
 ```bash
-git clone https://github.com/gsknnft/SigilNet
+git clone https://github.com/gsknnft/x402-agent-gateway
 cd isolation/x402-qagent-gateway
 ./examples/agent-to-agent-demo/scripts/run-demo.sh
 ```

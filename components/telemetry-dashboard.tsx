@@ -1466,6 +1466,9 @@ function BudgetTimelineChart({
     return chartData.findIndex(entry => entry.timestamp === haltEvent.timestamp)
   }, [chartData, haltEvent])
 
+  const safeMaxLamports = Math.max(1, maxLamports)
+  const xDenominator = Math.max(1, chartData.length - 1)
+
   if (chartData.length === 0) {
     return <p className="mt-6 text-sm text-slate-400">No budget data available.</p>
   }
@@ -1483,8 +1486,8 @@ function BudgetTimelineChart({
           <polyline
             points={chartData
               .map((entry, index) => {
-                const x = (index / (chartData.length - 1)) * 100
-                const y = 35 - (entry.remainingLamports / maxLamports) * 30
+                const x = (index / xDenominator) * 100
+                const y = 35 - (entry.remainingLamports / safeMaxLamports) * 30
                 return `${x},${y}`
               })
               .join(' ')}
@@ -1505,8 +1508,8 @@ function BudgetTimelineChart({
           <polygon
             points={`0,35 ${chartData
               .map((entry, index) => {
-                const x = (index / (chartData.length - 1)) * 100
-                const y = 35 - (entry.remainingLamports / maxLamports) * 30
+                const x = (index / xDenominator) * 100
+                const y = 35 - (entry.remainingLamports / safeMaxLamports) * 30
                 return `${x},${y}`
               })
               .join(' ')} 100,35`}
@@ -1515,8 +1518,8 @@ function BudgetTimelineChart({
 
           {/* Data points */}
           {chartData.map((entry, index) => {
-            const x = (index / (chartData.length - 1)) * 100
-            const y = 35 - (entry.remainingLamports / maxLamports) * 30
+            const x = (index / xDenominator) * 100
+            const y = 35 - (entry.remainingLamports / safeMaxLamports) * 30
             const isHaltPoint = entry.isHalt || index === haltIndex
             
             return (

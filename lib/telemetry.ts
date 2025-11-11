@@ -16,8 +16,12 @@ import type {
   TelemetryEvent,
 } from '../packages/telemetry-core/src/types'
 
+const TELEMETRY_ROOT = process.env.QAGENT_TELEMETRY_ROOT
+  ? path.resolve(process.env.QAGENT_TELEMETRY_ROOT)
+  : process.cwd()
+
 export const TELEMETRY_LOG_PATH = path.join(
-  process.cwd(),
+  TELEMETRY_ROOT,
   'apps',
   'agent-runner',
   'logs',
