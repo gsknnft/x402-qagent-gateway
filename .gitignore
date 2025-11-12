@@ -5,7 +5,7 @@
 /node_modules/
 */node_modules
 packages/kora/*
-
+apps/agent-runner/logs/*.jsonl
 
 /.pnp
 .pnp.*
