@@ -47,10 +47,20 @@ echo ""
 echo -e "${GREEN}✅ Dependencies installed${NC}"
 echo ""
 
-# Start seller service in background
+
+# Load addresses from .env if available
+ENV_PATH="$(dirname "$0")/../../packages/kora/docs/getting-started/demo/.env"
+if [ -f "$ENV_PATH" ]; then
+  SELLER_ADDRESS=$(grep DESTINATION_KEYPAIR "$ENV_PATH" | cut -d'=' -f2 | tr -d '\r\n')
+  BUYER_ADDRESS=$(grep TEST_SENDER_KEYPAIR "$ENV_PATH" | cut -d'=' -f2 | tr -d '\r\n')
+else
+  SELLER_ADDRESS="SellerWallet123abc"
+  BUYER_ADDRESS="BuyerWallet123xyz"
+fi
+
 echo -e "${BLUE}🏪 Starting Seller Service (http://localhost:3001)...${NC}"
 cd apps/seller-service
-SELLER_ADDRESS="SellerWallet123abc" pnpm start > /tmp/seller.log 2>&1 &
+SELLER_ADDRESS="$SELLER_ADDRESS" pnpm start > /tmp/seller.log 2>&1 &
 SELLER_PID=$!
 cd ../..
 
@@ -61,17 +71,27 @@ echo ""
 
 # Show seller info
 echo -e "${YELLOW}📊 Seller Configuration:${NC}"
-echo "   Vendor: SellerWallet123abc"
+echo "   Vendor: $SELLER_ADDRESS"
 echo "   Service: Text transformation"
-echo "   Price: \$0.01 per request"
+echo "   Price: $0.01 per request"
 echo "   Operations: uppercase, lowercase, reverse"
 echo ""
+
+# Optionally run Kora setup if available
+KORA_SETUP="packages/kora/docs/getting-started/demo/client/src/setup.ts"
+if [ -f "$KORA_SETUP" ]; then
+  echo -e "${BLUE}🔑 Running Kora setup script to fund and initialize accounts...${NC}"
+  pnpm exec tsx "$KORA_SETUP"
+  echo -e "${GREEN}✅ Kora setup completed${NC}"
+  echo ""
+fi
 
 # Run buyer agent
 echo -e "${BLUE}🤖 Starting Buyer Agent...${NC}"
 echo ""
 cd apps/agent-runner
-SELLER_ADDRESS="SellerWallet123abc" \
+SELLER_ADDRESS="$SELLER_ADDRESS" \
+BUYER_ADDRESS="$BUYER_ADDRESS" \
 SELLER_ENDPOINT="http://localhost:3001/api/transform" \
 pnpm start
 

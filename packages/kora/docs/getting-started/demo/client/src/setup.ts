@@ -293,6 +293,35 @@ async function main() {
     const MINT_AUTHORITY = await getOrCreateEnvKeyPair('MINT_AUTHORITY');
     const DESTINATION_KEYPAIR = await getOrCreateEnvKeyPair('DESTINATION_KEYPAIR');
 
+        // 2b - Update config files with generated seller and buyer addresses, only if needed
+        const sellerAddress = DESTINATION_KEYPAIR.address;
+        const buyerAddress = TEST_SENDER_KEYPAIR.address;
+        const fs = await import('fs/promises');
+        const configsToUpdate = [
+            path.join(process.cwd(), 'examples/agent-to-agent-demo/services/seller-primary.json'),
+            path.join(process.cwd(), 'examples/agent-to-agent-demo/policies/buyer-greedy.json'),
+            path.join(process.cwd(), 'examples/agent-to-agent-demo/policies/buyer-optimizer.json'),
+        ];
+        for (const configPath of configsToUpdate) {
+            try {
+                const content = await fs.readFile(configPath, 'utf8');
+                const alreadySeller = content.includes(sellerAddress);
+                const alreadyBuyer = content.includes(buyerAddress);
+                if (alreadySeller && alreadyBuyer) {
+                    console.log(`Config ${configPath} already populated with seller and buyer addresses.`);
+                    continue;
+                }
+                let updated = content.replace(/SellerWallet123abc/g, sellerAddress);
+                updated = updated.replace(/sellerwallet123abc/g, sellerAddress.toLowerCase());
+                updated = updated.replace(/BuyerWallet123xyz/g, buyerAddress);
+                updated = updated.replace(/buyerwallet123xyz/g, buyerAddress.toLowerCase());
+                await fs.writeFile(configPath, updated, 'utf8');
+                console.log(`Updated ${configPath} with seller address: ${sellerAddress} and buyer address: ${buyerAddress}`);
+            } catch (e) {
+                console.warn(`Could not update ${configPath}:`, e);
+            }
+        }
+
     // 3 - Airdrop SOL to test sender and kora wallets
     await Promise.all([
         airdrop({

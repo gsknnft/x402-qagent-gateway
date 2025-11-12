@@ -4,14 +4,14 @@
   "description": "Cost-conscious agent: selects cheapest viable actions to maximize budget efficiency",
   "policy": {
     "allowedVendors": [
-      "SellerWallet123abc",
+      "ErmZRXuBxvSWpZrKVoRy9cgFyfzagqKH6XP5rMMvqaLH",
       "AlternateSellerXYZ",
       "BudgetSellerABC"
     ],
     "budgetCap": 500000,
     "budgetWindow": 1800,
     "rateLimits": {
-      "sellerwallet123abc": 20,
+      "ermzrxubxvswpzrkvory9cgfyfzagqkh6xp5rmmvqalh": 20,
       "alternatesellerxyz": 15,
       "budgetsellerabc": 30
     },
