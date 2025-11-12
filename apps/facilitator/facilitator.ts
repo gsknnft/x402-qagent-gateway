@@ -22,6 +22,17 @@ const KORA_API_KEY = process.env.KORA_API_KEY || "kora_facilitator_api_key_examp
 
 const app = express();
 
+// Enable CORS for cross-origin requests (needed for web dashboard)
+app.use((req, res, next) => {
+    res.header('Access-Control-Allow-Origin', '*');
+    res.header('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+    res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+    if (req.method === 'OPTIONS') {
+        return res.sendStatus(200);
+    }
+    next();
+});
+
 app.use(express.json());
 
 type VerifyRequest = {
@@ -108,8 +119,19 @@ app.get("/supported", async (req: Request, res: Response) => {
             kinds,
         });
     } catch (error) {
-        res.status(500).json({
-            error: `Failed to get supported payment kinds: ${error instanceof Error ? error.message : String(error)}`
+        console.error("Failed to connect to Kora RPC:", error);
+        // Fallback response for demo mode when Kora is unavailable
+        console.log("⚠️  Using fallback mode - Kora RPC unavailable");
+        res.json({
+            kinds: [{
+                x402Version: 1,
+                scheme: "exact",
+                network: NETWORK,
+                extra: {
+                    feePayer: "DemoFeePayerAddress_KoraUnavailable",
+                    mode: "demo"
+                },
+            }],
         });
     }
 });
@@ -144,5 +166,38 @@ app.post("/settle", async (req: Request, res: Response) => {
 });
 
 app.listen(FACILITATOR_PORT, () => {
-    console.log(`Server listening at http://localhost:${FACILITATOR_PORT}`);
+    console.log(`🚀 X402 Facilitator with Kora Integration`);
+    console.log(`📡 Server listening at http://localhost:${FACILITATOR_PORT}`);
+    console.log(`🔗 Kora RPC: ${KORA_RPC_URL}`);
+    console.log(`🌐 Network: ${NETWORK}`);
+    console.log(`\nEndpoints:`);
+    console.log(`  GET  /health - Health check`);
+    console.log(`  GET  /supported - Supported payment kinds`);
+    console.log(`  POST /verify - Verify payment`);
+    console.log(`  POST /settle - Settle payment`);
+});
+
+// Health check endpoint
+app.get("/health", async (req: Request, res: Response) => {
+    console.log("=== /health endpoint called ===");
+    
+    let koraStatus = "unknown";
+    try {
+        const kora = new KoraClient({ rpcUrl: KORA_RPC_URL, apiKey: KORA_API_KEY });
+        await kora.getPayerSigner();
+        koraStatus = "connected";
+    } catch (error) {
+        koraStatus = "unavailable";
+    }
+    
+    res.json({
+        status: "healthy",
+        service: "x402-facilitator",
+        network: NETWORK,
+        kora: {
+            rpcUrl: KORA_RPC_URL,
+            status: koraStatus,
+        },
+        timestamp: new Date().toISOString(),
+    });
 });

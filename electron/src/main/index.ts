@@ -31,7 +31,7 @@ async function installExtensions() {
 }
 
 async function createWindow() {
-  const dev = true;// !app.isPackaged;
+  const dev = !app.isPackaged;
 
   if (dev) await installExtensions();
 
