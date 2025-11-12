@@ -4,6 +4,7 @@ electron/release/
 .next/
 dist/
 build/
+packages/kora/*
 
 # Ignore node_modules
 node_modules/

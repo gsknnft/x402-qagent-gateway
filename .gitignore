@@ -4,6 +4,7 @@
 **/node_modules/
 /node_modules/
 */node_modules
+packages/kora/*
 
 
 /.pnp
@@ -26,6 +27,8 @@
 
 # misc
 .DS_Store
+
+#
 *.pem
 
 # debug
@@ -56,6 +59,4 @@ electron/.vite/
 electron/node_modules/.vite-*
 
 # Telemetry logs
-apps/agent-runner/logs/
-*.jsonl
-apps/agent-runner/logs/*.jsonl
+vapps/agent-runner/logs/*.jsonl
