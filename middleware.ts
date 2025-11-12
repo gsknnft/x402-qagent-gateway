@@ -14,7 +14,7 @@ const network = (process.env.NEXT_PUBLIC_NETWORK as Network | undefined) ?? DEFA
 const facilitatorUrl =
   (process.env.NEXT_PUBLIC_FACILITATOR_URL as Resource | undefined) ?? DEFAULTS.facilitatorUrl
 const cdpClientKey = process.env.NEXT_PUBLIC_CDP_CLIENT_KEY ?? DEFAULTS.cdpClientKey
-const demoMode = process.env.NEXT_PUBLIC_X402_DEMO_MODE === 'skip'
+// const demoMode = process.env.NEXT_PUBLIC_X402_DEMO_MODE === 'skip'
 const DEMO_BYPASS_PARAMS = ['demo', 'skipPaywall']
 
 if (process.env.NODE_ENV !== 'production') {
@@ -24,9 +24,9 @@ if (process.env.NODE_ENV !== 'production') {
   if (!process.env.NEXT_PUBLIC_CDP_CLIENT_KEY) {
     console.warn('[x402] NEXT_PUBLIC_CDP_CLIENT_KEY not set, using demo client key — set one for production runs')
   }
-  if (demoMode) {
-    console.warn('[x402] Demo mode enabled — middleware will skip payment checks')
-  }
+  // if (demoMode) {
+  //   console.warn('[x402] Demo mode enabled — middleware will skip payment checks')
+  // }
 }
 
 const x402PaymentMiddleware = paymentMiddleware(
@@ -59,9 +59,9 @@ const x402PaymentMiddleware = paymentMiddleware(
 )
 
 export const middleware = (req: NextRequest) => {
-  if (demoMode || DEMO_BYPASS_PARAMS.some(param => req.nextUrl.searchParams.has(param))) {
-    return NextResponse.next()
-  }
+  // if (demoMode || DEMO_BYPASS_PARAMS.some(param => req.nextUrl.searchParams.has(param))) {
+  //   return NextResponse.next()
+  // }
 
   const delegate = x402PaymentMiddleware as unknown as (
     request: NextRequest,

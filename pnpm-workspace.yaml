@@ -1,7 +1,7 @@
 packages:
   - apps/*
   - packages/*
-  - packages/kora/sdks/*
+  - packages/kora/**
   - electron
 
 onlyBuiltDependencies:
