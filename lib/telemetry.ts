@@ -202,9 +202,15 @@ export async function getTelemetrySummary(limit = 400): Promise<TelemetrySummary
   const lastUpdated = stats?.mtime?.toISOString() ?? null
   const partitions = partitionEvents(events)
 
-  const overall = buildStreamSummary(events, lastUpdated)
   const demo = buildStreamSummary(partitions.demo, lastUpdated)
   const gameboard = buildStreamSummary(partitions.gameboard, lastUpdated)
+  const overall = buildStreamSummary(events, lastUpdated)
+
+  overall.budget = combineBudgets([demo.budget, gameboard.budget])
+  overall.budgetHistory = mergeBudgetHistories([
+    { stream: 'demo', entries: demo.budgetHistory },
+    { stream: 'gameboard', entries: gameboard.budgetHistory },
+  ])
 
   return {
     generatedAt: new Date().toISOString(),
@@ -577,6 +583,65 @@ function buildBudgetHistory(events: TelemetryEvent[]) {
     spentLamports: event.payload.spent,
     isHalt: haltTimestamps.has(event.timestamp),
   }))
+}
+
+function combineBudgets(budgets: Array<TelemetryStreamSummary['budget']>) {
+  const initialLamports = budgets.reduce((total, budget) => total + budget.initialLamports, 0)
+  const spentLamports = budgets.reduce((total, budget) => total + budget.spentLamports, 0)
+  const remainingLamports = budgets.reduce((total, budget) => total + budget.remainingLamports, 0)
+
+  return {
+    initialLamports,
+    spentLamports,
+    remainingLamports,
+    initialUsd: lamportsToUsd(initialLamports),
+    spentUsd: lamportsToUsd(spentLamports),
+    remainingUsd: lamportsToUsd(remainingLamports),
+  }
+}
+
+function mergeBudgetHistories(
+  histories: Array<{ stream: 'demo' | 'gameboard'; entries: TelemetryStreamSummary['budgetHistory'] }>,
+) {
+  const annotated = histories.flatMap(({ stream, entries }) =>
+    entries.map(entry => ({ stream, entry })),
+  )
+
+  if (annotated.length === 0) {
+    return []
+  }
+
+  annotated.sort(
+    (a, b) => new Date(a.entry.timestamp).getTime() - new Date(b.entry.timestamp).getTime(),
+  )
+
+  const latestByStream = new Map<string, { remaining: number; spent: number }>()
+  const merged: TelemetryStreamSummary['budgetHistory'] = []
+
+  for (const { stream, entry } of annotated) {
+    latestByStream.set(stream, {
+      remaining: entry.remainingLamports,
+      spent: entry.spentLamports,
+    })
+
+    const aggregate = Array.from(latestByStream.values()).reduce(
+      (acc, value) => {
+        acc.remaining += value.remaining
+        acc.spent += value.spent
+        return acc
+      },
+      { remaining: 0, spent: 0 },
+    )
+
+    merged.push({
+      timestamp: entry.timestamp,
+      remainingLamports: aggregate.remaining,
+      spentLamports: aggregate.spent,
+      isHalt: entry.isHalt,
+    })
+  }
+
+  return merged
 }
 
 function buildTimeline(events: TelemetryEvent[]) {

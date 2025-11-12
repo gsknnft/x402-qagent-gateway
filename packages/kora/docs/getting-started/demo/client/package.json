@@ -14,7 +14,7 @@
   ],
   "author": "Solana Foundation",
   "license": "MIT",
-  "packageManager": "pnpm@10.12.3",
+  "packageManager": "pnpm@10.18.0",
   "dependencies": {
     "@kora/sdk": "file:../../../../sdks/ts",
     "@solana-program/compute-budget": "^0.8.0",
@@ -28,7 +28,7 @@
     "gill": "^0.10.3"
   },
   "devDependencies": {
-    "@types/node": "^24.0.13",
+    "@types/node": "^20",
     "tsx": "^4.20.5",
     "typescript": "^5.8.3"
   }

@@ -37,8 +37,11 @@ allowed_programs = [
 ]
 allowed_tokens = [
     "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v", # USDC
+    "EC8NnnZiDMiBCXttjsne5DpKmXGvnA7PM8V9LL7mW21R"
 ]
-allowed_spl_paid_tokens = []
+allowed_spl_paid_tokens = [
+    "EC8NnnZiDMiBCXttjsne5DpKmXGvnA7PM8V9LL7mW21R"
+]
 #allowed_spl_paid_tokens = "All"  # Allow any token to be used for payment,
 disallowed_accounts = []
 

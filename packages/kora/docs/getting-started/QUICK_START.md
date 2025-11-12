@@ -159,7 +159,8 @@ This command will:
 ### Terminal 4: Start Kora RPC Server
 ```bash
 # From ./server directory
-kora rpc start --signers-config signers.toml
+# kora rpc start --signers-config signers.toml
+cargo run -p kora-cli --bin kora --   --config docs/getting-started/demo/server/kora.toml   --rpc-url http://127.0.0.1:8899   rpc start --signers-config docs/getting-started/demo/server/signers.toml
 ```
 
 The server reads configuration from `kora.toml` and `signers.toml` and uses environment variables from the shared `.env` file. If you are using a different folder structure than specified here, you may need to use the `--config` to specify the location of `kora.toml` and `--signers-config` to specify the directory of your signers configuration: 
@@ -171,6 +172,8 @@ kora rpc --config path/to/kora.toml start --signers-config path/to/signers.toml
 You can access `kora rpc -h` for help on the RPC server options.
 
 ### Terminal 5: Run Client Demo
+
+
 ```bash
 # From ./client directory
 pnpm start

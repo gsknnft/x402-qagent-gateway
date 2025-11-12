@@ -5,6 +5,9 @@
   "displayName": "X402 Next.js",
   "description": "Next.js Solana starter with X402 payment protocol integration",
   "usecase": "Payments",
+  "workspaces":[
+    "./packages/kora/sdks/*"
+  ],
   "keywords": [
     "solana",
     "nextjs",
@@ -37,7 +40,7 @@
     "clean:telemetry": "node -e \"const fs=require('fs');const path=require('path');const target=path.join(__dirname,'apps','agent-runner','logs','agent-telemetry.jsonl');if(fs.existsSync(target)){fs.rmSync(target);console.log('Telemetry log removed.');}else{console.log('No telemetry log to remove.');}\""
   },
   "dependencies": {
-    
+    "express": "5.1.0",
     "next": "16.0.1",
     "react": "19.2.0",
     "react-dom": "19.2.0",

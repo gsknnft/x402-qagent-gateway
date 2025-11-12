@@ -674,6 +674,39 @@ export function TelemetryDashboard({ initialSummary, demoModeEnabled }: Props) {
                       />
                     </div>
                   </div>
+                  {activeStream === 'overall' ? (
+                    <div className="mt-6 rounded-xl border border-slate-800/70 bg-slate-900/80 p-4">
+                      <p className="text-xs uppercase tracking-wide text-slate-500">Stream breakdown</p>
+                      <div className="mt-4 space-y-3 text-sm text-slate-300">
+                        {(['demo', 'gameboard'] as const).map(streamKey => {
+                          const slice = streamSlices[streamKey]
+                          const streamMeta = STREAM_OPTIONS.find(option => option.key === streamKey)
+                          if (!streamMeta) {
+                            return null
+                          }
+                          return (
+                            <div key={streamKey} className="rounded-lg border border-slate-800/60 bg-slate-900/70 p-3">
+                              <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">{streamMeta.label}</p>
+                              <div className="mt-3 grid gap-3 sm:grid-cols-3">
+                                <div>
+                                  <p className="text-[11px] uppercase tracking-wide text-slate-500">Initial</p>
+                                  <p className="mt-1 font-semibold text-slate-100">{formatLamports(slice.budget.initialLamports)}</p>
+                                </div>
+                                <div>
+                                  <p className="text-[11px] uppercase tracking-wide text-slate-500">Spent</p>
+                                  <p className="mt-1 font-semibold text-rose-300">{formatLamports(slice.budget.spentLamports)}</p>
+                                </div>
+                                <div>
+                                  <p className="text-[11px] uppercase tracking-wide text-slate-500">Remaining</p>
+                                  <p className="mt-1 font-semibold text-emerald-300">{formatLamports(slice.budget.remainingLamports)}</p>
+                                </div>
+                              </div>
+                            </div>
+                          )
+                        })}
+                      </div>
+                    </div>
+                  ) : null}
                 </div>
               </div>
 
@@ -1111,8 +1144,8 @@ function SigilPitch({
             <p className="mt-4 text-sm text-slate-400">Pass history will populate as the drill runs.</p>
           ) : (
             <ul className="mt-4 space-y-3">
-              {[...recentPasses].reverse().map(pass => (
-                <li key={pass.sequence} className="rounded-lg border border-slate-800 bg-slate-900/60 p-3">
+              {[...recentPasses].reverse().map((pass, index) => (
+                <li key={`pass-${pass.sequence}-${pass.timestamp}-${index}`} className="rounded-lg border border-slate-800 bg-slate-900/60 p-3">
                   <div className="flex items-center justify-between text-xs text-slate-500">
                     <span className="font-mono text-slate-400">#{String(pass.sequence).padStart(2, '0')}</span>
                     <span>{formatTimestamp(pass.timestamp)}</span>
@@ -1289,7 +1322,7 @@ function SigilPitchField({
         <path d="M 118 73 Q 118 63, 108 63" stroke="#1e3a5f" strokeWidth="0.8" fill="none" opacity="0.3" />
 
         {/* Pass lines with animation effect */}
-        {passes.map((pass, index) => {
+  {passes.map((pass, index) => {
           const fromPoint = pass.from ? layout[pass.from.id] : undefined
           const toPoint = layout[pass.to.id]
           if (!toPoint) {
@@ -1303,7 +1336,7 @@ function SigilPitchField({
           const opacity = 0.4 + (index / Math.max(passes.length, 1)) * 0.5
 
           return (
-            <g key={`pass-${pass.sequence}`}>
+            <g key={`pass-${pass.sequence}-${pass.timestamp}-${index}`}>
               {/* Glow effect for emphasized passes */}
               {emphasis && (
                 <line
@@ -1342,7 +1375,7 @@ function SigilPitchField({
               {/* Directional arrow for active pass */}
               {emphasis && (
                 <marker
-                  id={`arrow-${pass.sequence}`}
+                  id={`arrow-${pass.sequence}-${index}`}
                   viewBox="0 0 10 10"
                   refX="5"
                   refY="5"

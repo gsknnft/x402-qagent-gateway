@@ -1,7 +1,7 @@
 [kora]
 rate_limit = 100
 # Optional: Payment address to receive payment tokens (defaults to signer address)
-# payment_address = "YourPaymentAddressPubkey11111111111111111111"
+# payment_address = "9iGq3Y62Uva9AKAsM63WtAuggdLQUz6LUCuy8ANRjMEN"
 
 [kora.cache]
 enabled = false
@@ -33,10 +33,10 @@ allowed_programs = [
     "ComputeBudget111111111111111111111111111111", # Compute Budget Program
 ]
 allowed_tokens = [
-    "9BgeTKqmFsPVnfYscfM6NvsgmZxei7XfdciShQ6D3bxJ", # Update this based on the USDC_LOCAL_KEY public key comment in your .env
+    "EC8NnnZiDMiBCXttjsne5DpKmXGvnA7PM8V9LL7mW21R", # Update this based on the USDC_LOCAL_KEY public key comment in your .env
 ]
 allowed_spl_paid_tokens = [
-    "9BgeTKqmFsPVnfYscfM6NvsgmZxei7XfdciShQ6D3bxJ", # Update this based on the USDC_LOCAL_KEY public key comment in your .env
+    "EC8NnnZiDMiBCXttjsne5DpKmXGvnA7PM8V9LL7mW21R", # Update this based on the USDC_LOCAL_KEY public key comment in your .env
 ]
 
 disallowed_accounts = [
