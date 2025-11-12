@@ -31,7 +31,7 @@ async function installExtensions() {
 }
 
 async function createWindow() {
-  const dev = true;// !app.isPackaged;
+  const dev = !app.isPackaged;
 
   if (dev) await installExtensions();
 
@@ -44,6 +44,9 @@ async function createWindow() {
       preload: path.join(__dirname, '../preload/index'),
       contextIsolation: true,
       sandbox: false,
+      nodeIntegration: false,
+      // Disable web security in dev mode for local API calls
+      webSecurity: !dev,
     },
   });
 

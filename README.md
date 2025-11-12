@@ -61,7 +61,24 @@ Event tracking and lineage:
 - **SigilNet stub** - Integration hooks for future field closure layer
 - Correlation IDs for full lineage tracking
 
+### 4. **Kora Integration** (`packages/kora/sdks/ts/`)
+Solana signing infrastructure for gasless transactions:
+- `KoraClient` - RPC client for Kora signing service
+- Transaction signing without user's SOL for fees
+- Support for paying fees in any token (USDC, BONK, etc.)
+- **X402 Facilitator** (`apps/facilitator/`) - Bridges X402 with Kora
+- Enables true gasless payment flows
+
+> **📖 See [KORA_INTEGRATION.md](./KORA_INTEGRATION.md)** for complete integration guide
+
 ## Demo Applications
+
+### Facilitator Service (`apps/facilitator/`)
+X402 facilitator with Kora integration:
+- POST `/verify` - Verify payment can be processed
+- POST `/settle` - Sign and send transaction via Kora
+- GET `/supported` - Returns supported payment kinds
+- **Non-production demo mode** - No actual blockchain transactions
 
 ### Seller Service (`apps/seller-service/`)
 Micro-service that sells text transformations behind X402 paywall:
@@ -171,6 +188,8 @@ pnpm install
 
 The quickest way to see the system in action:
 
+#### Demo Mode (Default - No Kora Required)
+
 ```bash
 # Terminal 1: Start the Seller Service
 cd apps/seller-service
@@ -188,10 +207,39 @@ pnpm start
 2. Buyer agent initializes with 1M lamports budget (~$0.67)
 3. Agent autonomously executes tasks:
    - Checks budget availability
-   - Pays seller via X402 protocol
+   - Pays seller via X402 protocol (simulated)
    - Receives service results
    - Emits telemetry events
    - Updates budget state
+
+#### With Kora Facilitator (Optional)
+
+To demonstrate the full Kora integration with X402 facilitator:
+
+```bash
+# Terminal 1: Start the Facilitator (with Kora integration)
+cd apps/facilitator
+pnpm start
+# Facilitator will listen on http://localhost:3000
+
+# Terminal 2: Start the Seller Service
+cd apps/seller-service
+pnpm start
+# Seller will listen on http://localhost:3001
+
+# Terminal 3: Run the Buyer Agent
+cd apps/agent-runner
+pnpm start
+# Agent now uses facilitator for payments!
+```
+
+**What's different:**
+- Facilitator provides X402-compliant payment processing
+- Uses Kora SDK for transaction signing (demo mode)
+- Shows gasless transaction pattern
+- Returns real transaction signatures
+
+> **Note:** For the hackathon demo, this runs in **non-production mode** without actual blockchain transactions. See [KORA_INTEGRATION.md](./KORA_INTEGRATION.md) for full details.
 
 ### Running the Web Dashboard
 
