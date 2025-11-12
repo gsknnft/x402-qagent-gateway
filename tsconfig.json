@@ -39,6 +39,9 @@
   "exclude": [
     "node_modules",
     "apps/**",
-    "examples/**"
+    "examples/**",
+    "packages/kora/docs/**",
+    "packages/kora/sdks/**",
+    "packages/kora/crates/**"
   ]
 }

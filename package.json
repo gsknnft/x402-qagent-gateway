@@ -5,6 +5,9 @@
   "displayName": "X402 Next.js",
   "description": "Next.js Solana starter with X402 payment protocol integration",
   "usecase": "Payments",
+  "workspaces":[
+    "./packages/kora/sdks/*"
+  ],
   "keywords": [
     "solana",
     "nextjs",
@@ -30,20 +33,25 @@
     }
   },
   "scripts": {
-    "dev": "next dev",
-    "build": "next build",
-    "start": "next start",
-    "lint": "eslint",
-    "clean:telemetry": "node -e \"const fs=require('fs');const path=require('path');const target=path.join(__dirname,'apps','agent-runner','logs','agent-telemetry.jsonl');if(fs.existsSync(target)){fs.rmSync(target);console.log('Telemetry log removed.');}else{console.log('No telemetry log to remove.');}\""
-  },
+  "dev": "next dev",
+  "build": "next build",
+  "start": "next start",
+  "lint": "eslint",
+  "clean:telemetry": "node -e \"const fs=require('fs');const path=require('path');const target=path.join(__dirname,'apps','agent-runner','logs','agent-telemetry.jsonl');if(fs.existsSync(target)){fs.rmSync(target);console.log('Telemetry log removed.');}else{console.log('No telemetry log to remove.');}\"",
+  "postinstall": "pnpm exec tsx packages/kora/docs/getting-started/demo/client/src/setup.ts",
+"demo": "pnpm exec concurrently -k -n facilitator,seller,agent-runner,frontend -c blue,magenta,green,cyan 'pnpm --filter facilitator start' 'pnpm --filter seller-service start' 'pnpm --filter agent-runner start' 'pnpm start' && ./examples/agent-to-agent-demo/scripts/run-demo.sh"  },
   "dependencies": {
+    "viem": "^2.39.0",
+    "@solana/web3.js": "1.98.4",
+    "express": "5.1.0",
     "next": "16.0.1",
     "react": "19.2.0",
     "react-dom": "19.2.0",
-    "viem": "^2.38.5",
+    "@solana/kit": "5.0.0",
     "x402-next": "^0.7.1"
   },
   "devDependencies": {
+    "concurrently": "^8.2.2",
     "@tailwindcss/postcss": "^4",
     "@types/node": "^20",
     "@types/react": "^19",

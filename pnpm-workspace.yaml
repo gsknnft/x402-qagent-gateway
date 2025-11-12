@@ -1,12 +1,19 @@
 packages:
   - apps/*
   - packages/*
+  - packages/kora/sdks/*
   - electron
 
 onlyBuiltDependencies:
+  - '@parcel/watcher'
   - bufferutil
+  - core-js
+  - core-js-pure
   - electron
+  - electron-winstaller
+  - esbuild
   - keccak
+  - rollup
   - sharp
   - unrs-resolver
   - utf-8-validate

@@ -4,13 +4,13 @@
   "description": "Priority-first agent: selects highest priority actions within budget",
   "policy": {
     "allowedVendors": [
-      "SellerWallet123abc",
+      "ErmZRXuBxvSWpZrKVoRy9cgFyfzagqKH6XP5rMMvqaLH",
       "AlternateSellerXYZ"
     ],
     "budgetCap": 1000000,
     "budgetWindow": 3600,
     "rateLimits": {
-      "sellerwallet123abc": 10,
+      "ermzrxubxvswpzrkvory9cgfyfzagqkh6xp5rmmvqalh": 10,
       "alternatesellerxyz": 5
     },
     "provenance": {

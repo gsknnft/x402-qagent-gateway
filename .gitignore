@@ -40,6 +40,7 @@ yarn-error.log*
 # env files (can opt-in for committing if needed)
 .env
 .env.local
+secure
 
 # vercel
 .vercel
@@ -58,4 +59,4 @@ electron/.vite/
 electron/node_modules/.vite-*
 
 # Telemetry logs
-apps/agent-runner/logs/*.jsonl
+vapps/agent-runner/logs/*.jsonl

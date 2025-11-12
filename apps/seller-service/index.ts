@@ -13,7 +13,7 @@ const app = express()
 app.use(express.json())
 
 // Validate seller address from environment
-const SELLER_ADDRESS_RAW = process.env.SELLER_ADDRESS || 'SellerWallet123abc'
+const SELLER_ADDRESS_RAW = process.env.SELLER_ADDRESS || '9iGq3Y62Uva9AKAsM63WtAuggdLQUz6LUCuy8ANRjMEN'
 if (!isValidAddress(SELLER_ADDRESS_RAW)) {
   throw new Error(`Invalid SELLER_ADDRESS: ${SELLER_ADDRESS_RAW}`)
 }

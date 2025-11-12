@@ -16,9 +16,13 @@ import { AgentAction, AgentState } from '../../packages/agent-sdk/src/types'
 import { ConsoleSink } from '../../packages/telemetry-core/src/console-sink'
 import { JSONLSink } from '../../packages/telemetry-core/src/jsonl-sink'
 import { TelemetryEvent } from '../../packages/telemetry-core/src/types'
+import { mkdirSync } from 'fs'
 
 async function main() {
   console.log('🤖 Starting Autonomous Buyer Agent...\n')
+
+  // Ensure logs directory exists
+  mkdirSync('./logs', { recursive: true })
 
   // Configuration
   const agentId = 'buyer-agent-001'

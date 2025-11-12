@@ -1,6 +1,6 @@
 'use client';
 
-import { rehydrate } from './rehydrate';
+// import { rehydrate } from './rehydrate';
 import { useEffect } from 'react';
 /**
  * QSetup
@@ -11,7 +11,7 @@ import { useEffect } from 'react';
 export default function OsSetup() {
   useEffect(() => {
     console.log("🔁 Rehydrating OS runtime...");
-    rehydrate();
+    // rehydrate();
   }, []);
 
   return null; // No UI, just logic

@@ -1,4 +1,4 @@
-// // File: src/bridge.ts
+// File: src/bridge.ts
 
 // export * from "@<yourpkg>/core/init";
 // export * from "@<yourpkg>/core/state";
