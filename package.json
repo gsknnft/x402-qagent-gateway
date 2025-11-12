@@ -38,7 +38,6 @@
   "start": "next start",
   "lint": "eslint",
   "clean:telemetry": "node -e \"const fs=require('fs');const path=require('path');const target=path.join(__dirname,'apps','agent-runner','logs','agent-telemetry.jsonl');if(fs.existsSync(target)){fs.rmSync(target);console.log('Telemetry log removed.');}else{console.log('No telemetry log to remove.');}\"",
-  "postinstall": "pnpm exec tsx packages/kora/docs/getting-started/demo/client/src/setup.ts",
 "demo": "pnpm exec concurrently -k -n facilitator,seller,agent-runner,frontend -c blue,magenta,green,cyan 'pnpm --filter facilitator start' 'pnpm --filter seller-service start' 'pnpm --filter agent-runner start' 'pnpm start' && ./examples/agent-to-agent-demo/scripts/run-demo.sh"  },
   "dependencies": {
     "viem": "^2.39.0",
